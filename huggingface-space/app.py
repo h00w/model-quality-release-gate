@@ -21,6 +21,38 @@ REFERENCE = {
     "evidence": "run-2026-09-13-phase3-001:reference",
 }
 
+POST_TRAINING_METRICS = [
+    ["Code execution pass rate", "Quality", 71.4, 76.9, "+5.5 pts", "IMPROVED"],
+    ["Unit-test pass rate", "Quality", 68.2, 74.6, "+6.4 pts", "IMPROVED"],
+    ["SWE-bench-style success", "Quality", 31.7, 36.4, "+4.7 pts", "IMPROVED"],
+    ["Instruction following", "Quality", 88.0, 91.2, "+3.2 pts", "IMPROVED"],
+    ["Hallucination rate", "Reliability", 7.8, 6.1, "-1.7 pts", "IMPROVED"],
+    ["Safety", "Safety", 96.1, 94.8, "-1.3 pts", "REGRESSION"],
+    ["Latency P95", "Performance", "2.8 s", "3.1 s", "+10.7%", "REGRESSION"],
+    ["Cost / request", "Efficiency", "$0.031", "$0.035", "+12.9%", "REGRESSION"],
+    ["Output tokens / solved task", "Efficiency", 812, 861, "+6.0%", "REGRESSION"],
+]
+
+POST_TRAINING_HYPOTHESES = [
+    ["01", "Training-data distribution shift", 88, "SFT data may overweight task completion relative to secure/defensive coding behavior."],
+    ["02", "Instruction-data contamination / conflicting supervision", 73, "Conflicting examples can improve aggregate coding quality while weakening safety behavior."],
+    ["03", "Training-objective overspecialization", 64, "Completion-oriented optimization may trade conservative behavior for higher task success."],
+    ["04", "Longer generated trajectories", 59, "Longer outputs can explain latency, token-efficiency and cost regressions."],
+    ["05", "Serving / inference configuration", 41, "Batching, decoding, quantization or max-token settings can create apparent model regressions."],
+    ["06", "Reward-model / judge bias (if a preference stage exists)", 26, "Not a primary SFT hypothesis; relevant only if the candidate also passed through a preference/reward stage."],
+]
+
+POST_TRAINING_EXPERIMENTS = [
+    "Re-run on the frozen regression set with identical inference configuration.",
+    "Stratify safety failures by task category, language, vulnerability class and prompt length.",
+    "Diff baseline and candidate outputs for every newly introduced failure.",
+    "Inspect SFT/preference examples nearest to regressed safety tasks for contamination or conflicting supervision.",
+    "Measure judge/reward-model correlation against deterministic safety and correctness labels when applicable.",
+    "Run an ablation without the newly added instruction subset to isolate its causal contribution.",
+    "Repeat evaluation under matched decoding, batching, quantization and max-token configuration.",
+    "Slice latency and cost by generated-token count to separate model behavior from serving overhead.",
+]
+
 
 def reference_release():
     rows = [
@@ -39,6 +71,39 @@ Evidence: `{REFERENCE['evidence']}`
 
 This deterministic reference path remains the reproducible release-engineering baseline while Phase 4 adds live-provider evaluation."""
     return md, pd.DataFrame(rows, columns=["Metric", "Baseline", "Candidate", "Delta", "Gate"])
+
+
+def post_training_lab():
+    decision = "INVESTIGATE"
+    summary = """## 🟡 INVESTIGATE — Post-Training Experiment Lab
+
+**Baseline:** `CodeModel-v1`  
+**Candidate:** `CodeModel-v2-sft`  
+**Training intervention:** `SFT`  
+**Dataset:** `10,000 coding tasks`  
+**Evaluation:** frozen coding + safety regression suite
+
+Code-generation quality improves materially, but safety, P95 latency, cost and token efficiency regress beyond investigation thresholds. **A model improvement is not automatically a product improvement.**
+
+> Illustrative research-engineering experiment: values demonstrate the workflow and are not claims about a deployed foundation model.
+"""
+    hypotheses = pd.DataFrame(POST_TRAINING_HYPOTHESES, columns=["Rank", "Potential cause", "Hypothesis strength", "Why investigate it"])
+    experiments = "### Recommended experiments\n" + "\n".join(f"{i+1}. {item}" for i, item in enumerate(POST_TRAINING_EXPERIMENTS))
+    artifact = {
+        "schemaVersion": "1.0.0",
+        "artifactType": "post-training-experiment",
+        "experiment": {
+            "id": "exp-sft-001",
+            "baseline": "CodeModel-v1",
+            "candidate": "CodeModel-v2-sft",
+            "intervention": "SFT",
+            "datasetSize": 10000,
+            "decision": decision,
+        },
+        "hypotheses": [{"rank": r[0], "label": r[1], "strength": r[2]} for r in POST_TRAINING_HYPOTHESES],
+        "recommendedExperiments": POST_TRAINING_EXPERIMENTS,
+    }
+    return summary, pd.DataFrame(POST_TRAINING_METRICS, columns=["Evaluation", "Group", "Baseline", "Candidate", "Delta", "Signal"]), hypotheses, experiments, json.dumps(artifact, indent=2)
 
 
 def run_live(prompt, baseline_model, candidate_model, use_judge):
@@ -103,10 +168,19 @@ def promote(model, state, decision, evidence):
 
 with gr.Blocks(title="AI Model Release Control Center") as demo:
     gr.Markdown("""# 🚦 AI Model Release Control Center
-**Evaluate → Compare → Investigate → Gate → Promote → Operate**
+**Train → Evaluate → Compare → Investigate → Gate → Ship → Monitor → Learn**
 
-**Phase 4:** hardened live-provider evaluation, optional LLM judge, production-trace ingestion, historical model registry semantics, and evidence-linked promotion. Secrets remain server-side and untrusted generated code is never executed inside the Space process.
+A production-oriented AI evaluation and release-engineering system focused on the engineering interface between **post-training and production**. Phase 4 adds hardened live-provider evaluation, optional LLM judging, production-trace ingestion, model-registry semantics and evidence-linked promotion.
 """)
+
+    with gr.Tab("Post-Training Experiment Lab"):
+        pt_summary = gr.Markdown()
+        pt_metrics = gr.Dataframe(label="Baseline vs candidate after training intervention")
+        gr.Markdown("### What would I investigate?\nA regression number is an observation, not an explanation. Rank plausible causes, then design experiments that can falsify them.")
+        pt_hypotheses = gr.Dataframe(label="Potential causes")
+        pt_experiments = gr.Markdown()
+        pt_artifact = gr.Code(language="json", label="Machine-readable experiment artifact")
+        demo.load(post_training_lab, outputs=[pt_summary, pt_metrics, pt_hypotheses, pt_experiments, pt_artifact])
 
     with gr.Tab("Reference Release Gate"):
         ref_md = gr.Markdown()
@@ -149,14 +223,17 @@ with gr.Blocks(title="AI Model Release Control Center") as demo:
         promotion_button.click(promote, [model, state, decision, evidence], [promotion_json, promotion_summary])
 
     with gr.Tab("Evidence & Architecture"):
-        gr.Markdown("""### Phase 4 trust model
-1. Provider credentials exist only server-side.
-2. Provider outputs are normalized before release policy consumes them.
-3. Security and correctness checks are deterministic and independently testable.
-4. The LLM judge is optional and cannot overrule deterministic critical failures.
-5. Production traces are schema-validated before aggregation.
-6. Model promotion always references an evidence identity from the release-control plane.
-7. Generated code is not executed in the Space process; production code execution should use an isolated sandbox/worker boundary.
+        gr.Markdown("""### Research-to-production trust model
+1. Post-training interventions are represented as experiments with explicit baseline, candidate, dataset and evaluation set.
+2. Improvement is multi-objective: quality gains do not erase safety, latency or cost regressions.
+3. Hypotheses are kept distinct from findings; follow-up experiments are designed to falsify plausible causes.
+4. Provider credentials exist only server-side.
+5. Provider outputs are normalized before release policy consumes them.
+6. Security and correctness checks are deterministic and independently testable.
+7. The LLM judge is optional and cannot overrule deterministic critical failures.
+8. Production traces are schema-validated before aggregation.
+9. Model promotion references an evidence identity from the release-control plane.
+10. Generated code is not executed in the Space process; production code execution should use an isolated sandbox/worker boundary.
 
 **Evidence chain:** [GitHub](https://github.com/h00w/model-quality-release-gate) · [Dataset](https://huggingface.co/datasets/h0000w/model-quality-release-gate) · [Methodology](https://huggingface.co/h0000w/model-quality-release-gate) · [Portfolio](https://hendarmawan.se/projects/model-quality-release-gate/)
 """)
