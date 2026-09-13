@@ -34,7 +34,7 @@ jobs:
         run: npm test
 
       - name: Run Phase 3 machine-readable gate tests
-        run: node --test scripts/release-gate.test.mjs
+        run: node --test scripts/release-gate.node-test.mjs
 
       - name: Generate sample release evidence
         run: node scripts/release-gate.mjs release/candidate-release.json artifacts/release-gate
