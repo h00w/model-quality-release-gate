@@ -1,251 +1,60 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Download, Moon, Search, ShieldAlert, Sun, Upload, XCircle } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { demoScenarios } from './data/demo';
+import { AlertTriangle, CheckCircle2, Download, Moon, Search, ShieldAlert, Sun, Upload, Zap } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { demoScenarios, trendData } from './data/demo';
 import { calculateReleaseDecision, DEFAULT_THRESHOLDS, normalizeImportedRow, validateEvaluation } from './lib/evaluation';
-import type { EvaluationResult, MetricKey } from './types/evaluation';
+import { applyWhatIf, coverageSummary, performanceSummary, playgroundEvaluate, safetyFindings } from './lib/phase2';
+import type { EvaluationResult, MetricKey, Thresholds } from './types/evaluation';
 
-const formatMetric = (key: MetricKey, value: number) => key === 'latencyMs' ? `${Math.round(value)} ms` : `${value.toFixed(1)}%`;
-const deltaText = (key: MetricKey, delta: number, deltaPercent: number) => key === 'latencyMs'
-  ? `${deltaPercent >= 0 ? '+' : ''}${deltaPercent.toFixed(1)}%`
-  : `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} pts`;
+const formatMetric=(key:MetricKey,value:number)=>key==='latencyMs'?`${Math.round(value)} ms`:`${value.toFixed(1)}%`;
+function parseCsv(text:string):Record<string,unknown>[]{const lines=text.trim().split(/\r?\n/);const headers=lines[0].split(',').map(s=>s.trim());return lines.slice(1).map(line=>{const cols=line.split(',');return Object.fromEntries(headers.map((h,i)=>[h,cols[i]?.trim()]));});}
+function download(content:string,name:string,type:string){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
 
-function parseCsv(text: string): Record<string, unknown>[] {
-  const lines = text.trim().split(/\r?\n/);
-  const headers = lines[0].split(',').map(s => s.trim());
-  return lines.slice(1).map(line => {
-    const cols = line.split(',');
-    return Object.fromEntries(headers.map((h,i) => [h, cols[i]?.trim()]));
-  });
-}
+export default function App(){
+ const [scenarioId,setScenarioId]=useState('investigate');
+ const [thresholds,setThresholds]=useState<Thresholds>(DEFAULT_THRESHOLDS);
+ const [dark,setDark]=useState(true);const [query,setQuery]=useState('');const [severity,setSeverity]=useState('all');const [category,setCategory]=useState('all');const [imported,setImported]=useState<EvaluationResult[]|null>(null);const [message,setMessage]=useState('');
+ const [prompt,setPrompt]=useState('Write Python sqlite3 code to fetch a user by id safely using a parameterized query.');const [playMode,setPlayMode]=useState<'safe'|'unsafe'|'edge'>('unsafe');
+ const [whatIf,setWhatIf]=useState({helpfulness:0,safety:0,reliability:0,codePassRate:0,latencyPct:0});const [trendMetric,setTrendMetric]=useState<'quality'|'safety'|'reliability'|'latency'>('quality');
+ const scenario=demoScenarios.find(s=>s.id===scenarioId)!;const candidate=imported??scenario.candidate;
+ const simulated=useMemo(()=>applyWhatIf(candidate,whatIf),[candidate,whatIf]);const gate=useMemo(()=>calculateReleaseDecision(scenario.baseline,simulated,thresholds),[scenario,simulated,thresholds]);
+ const playground=useMemo(()=>playgroundEvaluate(prompt,playMode),[prompt,playMode]);const perf=useMemo(()=>performanceSummary(simulated),[simulated]);const safety=useMemo(()=>safetyFindings(simulated),[simulated]);const coverage=useMemo(()=>coverageSummary(simulated),[simulated]);
+ const failures=simulated.filter(r=>!r.passed).filter(r=>severity==='all'||r.severity===severity).filter(r=>category==='all'||r.category===category).filter(r=>`${r.taskId} ${r.category} ${r.failureType} ${r.prompt}`.toLowerCase().includes(query.toLowerCase()));
+ const comparisonData=gate.comparisons.map(c=>({metric:c.label,Baseline:c.baseline,Candidate:c.candidate}));const regressions=gate.comparisons.filter(c=>c.status!=='PASS');const categories=[...new Set(simulated.map(r=>r.category))];
+ const qualityDelta=gate.candidate.qualityScore-gate.baseline.qualityScore;
+ async function onFile(file?:File){if(!file)return;setMessage('Validating evaluation data…');try{const text=await file.text();let raw:Record<string,unknown>[];if(file.name.endsWith('.csv'))raw=parseCsv(text);else if(file.name.endsWith('.jsonl'))raw=text.trim().split(/\r?\n/).map(l=>JSON.parse(l));else raw=JSON.parse(text);const rows=raw.map(normalizeImportedRow);validateEvaluation(rows);setImported(rows);setMessage(`Imported ${rows.length} evaluation rows.`);}catch(e){setMessage(e instanceof Error?e.message:'Unable to parse evaluation data.');}}
+ function exportCsv(){const h=['taskId','category','helpfulness','safety','reliability','latencyMs','codePassRate','passed','failureType','severity'];const body=[h.join(','),...simulated.map(r=>h.map(k=>String((r as unknown as Record<string,unknown>)[k]??'')).join(','))].join('\n');download(body,'evaluation-results.csv','text/csv');}
+ function exportReport(){const lines=['AI MODEL RELEASE CONTROL CENTER','Phase 2 evaluation report',`Baseline: ${scenario.baseline[0].model}`,`Candidate: ${simulated[0]?.model??'Imported candidate'}`,'',...gate.comparisons.map(c=>`${c.label}: ${formatMetric(c.key,c.baseline)} → ${formatMetric(c.key,c.candidate)} [${c.status}]`),'',`DECISION: ${gate.decision}`,gate.explanation,'',`Failures: ${gate.candidate.failures} | Critical: ${gate.candidate.criticalFailures}`,`P95 latency: ${Math.round(perf.p95)} ms`];download(lines.join('\n'),'model-release-control-report.txt','text/plain');}
+ const resetWhatIf=()=>setWhatIf({helpfulness:0,safety:0,reliability:0,codePassRate:0,latencyPct:0});
+ return <div className={dark?'app dark':'app'}>
+  <header><div><span className="eyebrow">PHASE 2 · AI EVALUATION · RELEASE ENGINEERING</span><h1>AI Model Release Control Center</h1><p className="subtitle">Evaluate → Compare → Investigate → Simulate → Gate → Ship</p></div><div className="headerActions"><a className="textBtn" href="https://huggingface.co/spaces/h0000w/model-quality-release-gate" target="_blank" rel="noreferrer">Live Space</a><a className="textBtn" href="https://github.com/h00w/model-quality-release-gate" target="_blank" rel="noreferrer">GitHub</a><button className="iconBtn" onClick={()=>setDark(!dark)}>{dark?<Sun/>:<Moon/>}</button></div></header>
+  <nav><a className="active" href="#dashboard">Dashboard</a><a href="#playground">Playground</a><a href="#simulator">Release Simulator</a><a href="#safety">Safety</a><a href="#performance">Performance</a><a href="#dataset">Dataset</a><a href="#failures">Failures</a></nav>
+  <main>
+   <section id="dashboard" className="controls card"><div><label>Demo scenario</label><select value={scenarioId} onChange={e=>{setScenarioId(e.target.value);setImported(null);resetWhatIf();}}>{demoScenarios.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><small>{scenario.description}</small></div><div><label>Evaluation evidence</label><strong>{gate.candidate.samples} executed cases</strong><small>{coverage.successful} pass · {coverage.failed} fail · {gate.candidate.criticalFailures} critical</small></div><div><label>Import candidate results</label><label className="upload"><Upload size={16}/> CSV / JSON / JSONL<input type="file" accept=".csv,.json,.jsonl" onChange={e=>onFile(e.target.files?.[0])}/></label><small>{message||'Schema validated before use.'}</small></div></section>
 
-export default function App() {
-  const [scenarioId,setScenarioId] = useState('investigate');
-  const [dark,setDark] = useState(true);
-  const [query,setQuery] = useState('');
-  const [severity,setSeverity] = useState('all');
-  const [imported,setImported] = useState<EvaluationResult[] | null>(null);
-  const [message,setMessage] = useState('');
-  const [whyOpen,setWhyOpen] = useState(true);
+   <section className={`releaseHero card ${gate.decision.toLowerCase()}`}><div className="releaseModels"><span>PRODUCTION BASELINE</span><strong>{scenario.baseline[0].model}</strong><b>→</b><span>CANDIDATE</span><strong>{simulated[0]?.model??'Imported model'}</strong></div><div className="releaseVerdict"><span className="eyebrow">CURRENT RELEASE DECISION</span><h2>{gate.decision}</h2><p>{gate.explanation}</p><div className="heroActions"><a href="#failures">Investigate failures</a><a href="#simulator">Run what-if</a><button onClick={exportReport}><Download size={16}/> Export evidence</button></div></div></section>
 
-  const scenario = demoScenarios.find(s => s.id === scenarioId)!;
-  const candidate = imported ?? scenario.candidate;
-  const gate = useMemo(() => calculateReleaseDecision(scenario.baseline,candidate,DEFAULT_THRESHOLDS),[scenario,candidate]);
-  const failures = candidate
-    .filter(r => !r.passed)
-    .filter(r => severity === 'all' || r.severity === severity)
-    .filter(r => `${r.taskId} ${r.category} ${r.failureType} ${r.prompt}`.toLowerCase().includes(query.toLowerCase()));
-  const comparisonData = gate.comparisons
-    .filter(c => c.key !== 'latencyMs')
-    .map(c => ({metric:c.label,Baseline:c.baseline,Candidate:c.candidate}));
-  const regressions = gate.comparisons.filter(c => c.status === 'REGRESSION');
-  const warnings = gate.comparisons.filter(c => c.status === 'WARNING');
-  const improved = gate.comparisons.filter(c => c.direction === 'higher' && c.delta > 0);
+   <section className="metrics">{gate.comparisons.map(c=><article className="card metric" key={c.key}><div className="metricTop"><span>{c.label}</span><span className={`status ${c.status.toLowerCase()}`}>{c.status}</span></div><strong>{formatMetric(c.key,c.candidate)}</strong><small>Baseline {formatMetric(c.key,c.baseline)}</small><div className={`delta ${c.status.toLowerCase()}`}>{c.key==='latencyMs'?`${c.deltaPercent>=0?'+':''}${c.deltaPercent.toFixed(1)}%`:`${c.delta>=0?'+':''}${c.delta.toFixed(1)} pts`}</div></article>)}</section>
 
-  async function onFile(file?: File) {
-    if (!file) return;
-    setMessage('Validating evaluation data…');
-    try {
-      const text = await file.text();
-      let raw: Record<string, unknown>[];
-      if (file.name.endsWith('.csv')) raw = parseCsv(text);
-      else if (file.name.endsWith('.jsonl')) raw = text.trim().split(/\r?\n/).map(l=>JSON.parse(l));
-      else raw = JSON.parse(text);
-      const rows = raw.map(normalizeImportedRow);
-      validateEvaluation(rows);
-      setImported(rows);
-      setMessage(`Imported ${rows.length} evaluation rows.`);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Unable to parse evaluation data.');
-    }
-  }
+   <section className="grid2"><article className="card chart"><div className="sectionHead compact"><div><h2>Candidate vs baseline</h2><p>Decision-oriented metric comparison.</p></div></div><ResponsiveContainer width="100%" height={300}><BarChart data={comparisonData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="metric"/><YAxis/><Tooltip/><Legend/><Bar dataKey="Baseline" fill="currentColor" opacity={.3}/><Bar dataKey="Candidate" fill="currentColor" opacity={.9}/></BarChart></ResponsiveContainer></article><article className="card chart"><div className="sectionHead compact"><div><h2>Version trend</h2><p>Track lifecycle movement across model versions.</p></div><select value={trendMetric} onChange={e=>setTrendMetric(e.target.value as typeof trendMetric)}><option value="quality">Quality</option><option value="safety">Safety</option><option value="reliability">Reliability</option><option value="latency">Latency</option></select></div><ResponsiveContainer width="100%" height={300}><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="version"/><YAxis/><Tooltip/><Line type="monotone" dataKey={trendMetric}/></LineChart></ResponsiveContainer></article></section>
 
-  function exportCsv() {
-    const h=['taskId','category','helpfulness','safety','reliability','latencyMs','codePassRate','passed','failureType','severity'];
-    const body=[h.join(','),...candidate.map(r=>h.map(k=>String((r as unknown as Record<string, unknown>)[k] ?? '')).join(','))].join('\n');
-    download(body,'evaluation-results.csv','text/csv');
-  }
+   <section id="playground" className="card phaseSection"><div className="sectionHead"><div><span className="eyebrow">PHASE 2</span><h2>Evaluation Playground</h2><p>Explore how a coding prompt turns into comparative evaluation evidence without pretending demo outputs are live model claims.</p></div></div><div className="playgroundGrid"><div className="playControls"><label>Prompt</label><textarea value={prompt} onChange={e=>setPrompt(e.target.value)} /><label>Demo behavior</label><select value={playMode} onChange={e=>setPlayMode(e.target.value as typeof playMode)}><option value="safe">General defensive coding</option><option value="unsafe">Security-sensitive SQL</option><option value="edge">Edge-case correctness</option></select><div className="playSummary"><Zap size={17}/><span>{playground.summary}</span></div></div><div className="outputCard"><span>BASELINE OUTPUT</span><pre>{playground.baseline}</pre><span>CANDIDATE OUTPUT</span><pre>{playground.candidate}</pre><div className="miniMetrics"><b>Correctness +{playground.deltas.correctness}%</b><b>Safety +{playground.deltas.safety}%</b><b>Reliability +{playground.deltas.reliability}%</b><b>Latency +{playground.deltas.latencyPct}%</b></div></div></div></section>
 
-  function exportReport() {
-    const lines=[
-      'AI MODEL RELEASE CONTROL CENTER',
-      'Phase 1 evaluation report',
-      `Baseline: ${scenario.baseline[0].model}`,
-      `Candidate: ${candidate[0]?.model ?? 'Imported candidate'}`,
-      '',
-      ...gate.comparisons.map(c=>`${c.label}: ${formatMetric(c.key,c.baseline)} → ${formatMetric(c.key,c.candidate)} (${deltaText(c.key,c.delta,c.deltaPercent)}) [${c.status}]`),
-      '',
-      `DECISION: ${gate.decision}`,
-      gate.explanation,
-      '',
-      `Failures: ${gate.candidate.failures}`,
-      `Critical failures: ${gate.candidate.criticalFailures}`,
-      `Samples: ${gate.candidate.samples}`,
-    ];
-    download(lines.join('\n'),'model-quality-release-report.txt','text/plain');
-  }
+   <section id="simulator" className="grid2"><article className="card phaseSection"><div className="sectionHead compact"><div><span className="eyebrow">RELEASE POLICY SIMULATOR</span><h2>Threshold controls</h2><p>Change policy tolerances and watch the verdict recompute immediately.</p></div></div><div className="sliderGrid">{Object.entries(thresholds).map(([key,val])=><label key={key}><span>{key==='latencyMs'?'Latency':key.replace(/([A-Z])/g,' $1')} tolerance <b>{val}%</b></span><input type="range" min="0" max="20" step="0.5" value={val} onChange={e=>setThresholds({...thresholds,[key]:Number(e.target.value)})}/></label>)}</div></article><article className={`card whatIf ${gate.decision.toLowerCase()}`}><div className="sectionHead compact"><div><span className="eyebrow">WHAT-IF MODE</span><h2>Simulate candidate changes</h2><p>Apply hypothetical metric shifts without altering source evidence.</p></div><button className="textBtn" onClick={resetWhatIf}>Reset</button></div><div className="whatIfGrid">{(['helpfulness','safety','reliability','codePassRate'] as const).map(k=><label key={k}><span>{k.replace(/([A-Z])/g,' $1')} Δ pts</span><input type="number" step="0.5" value={whatIf[k]} onChange={e=>setWhatIf({...whatIf,[k]:Number(e.target.value)})}/></label>)}<label><span>Latency Δ %</span><input type="number" step="1" value={whatIf.latencyPct} onChange={e=>setWhatIf({...whatIf,latencyPct:Number(e.target.value)})}/></label></div><div className="simVerdict"><span>SIMULATED DECISION</span><strong>{gate.decision}</strong><small>Quality Δ {qualityDelta>=0?'+':''}{qualityDelta.toFixed(1)}</small></div></article></section>
 
-  function download(content:string,name:string,type:string){
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([content],{type}));
-    a.download=name;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
+   <section id="safety" className="grid2"><article className="card phaseSection"><div className="sectionHead compact"><div><span className="eyebrow">AI CODE SAFETY</span><h2>Safety posture</h2></div></div><div className="scoreHero"><strong>{gate.candidate.safety.toFixed(1)}</strong><span>/100 safety score</span></div><div className="safetyCounts"><div><b>{gate.candidate.criticalFailures}</b><span>Critical</span></div><div><b>{safety.reduce((n,x)=>n+x.high,0)}</b><span>High</span></div><div><b>{safety.reduce((n,x)=>n+x.medium,0)}</b><span>Medium</span></div><div><b>{safety.reduce((n,x)=>n+x.low,0)}</b><span>Low</span></div></div></article><article className="card phaseSection"><div className="sectionHead compact"><div><h2>Safety findings</h2><p>Security-relevant failures grouped by classification.</p></div></div><div className="findingList">{safety.length?safety.map(f=><div key={f.category}><span>{f.category}</span><b>{f.count}</b></div>):<div className="allClear"><CheckCircle2/> No security-classified failures</div>}</div></article></section>
 
-  return <div className={dark?'app dark':'app'}>
-    <header>
-      <div>
-        <span className="eyebrow">PHASE 1 · AI EVALUATION · RELEASE ENGINEERING</span>
-        <h1>AI Model Release Control Center</h1>
-        <p className="subtitle">Evaluate → Compare → Investigate → Gate → Ship</p>
-      </div>
-      <div className="headerActions">
-        <a className="textBtn" href="https://github.com/h00w/model-quality-release-gate" target="_blank" rel="noreferrer">GitHub</a>
-        <a className="textBtn" href="https://huggingface.co/spaces/h0000w/model-quality-release-gate" target="_blank" rel="noreferrer">HF Space</a>
-        <button className="iconBtn" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun/>:<Moon/>}</button>
-      </div>
-    </header>
+   <section id="performance" className="card phaseSection"><div className="sectionHead"><div><span className="eyebrow">PERFORMANCE</span><h2>Latency distribution</h2><p>Percentiles are more meaningful than average latency alone.</p></div></div><div className="perfGrid"><div><span>P50</span><strong>{Math.round(perf.p50)} ms</strong></div><div><span>P90</span><strong>{Math.round(perf.p90)} ms</strong></div><div><span>P95</span><strong>{Math.round(perf.p95)} ms</strong></div><div><span>P99</span><strong>{Math.round(perf.p99)} ms</strong></div><div><span>Timeout ≥1.5s</span><strong>{perf.timeoutRate.toFixed(1)}%</strong></div></div></section>
 
-    <nav>
-      <a href="#dashboard" className="active">Dashboard</a>
-      <a href="#comparison">Model Compare</a>
-      <a href="#regressions">Regressions</a>
-      <a href="#failures">Failures</a>
-      <a href="#decision">Release Gate</a>
-      <a href="#evidence">Evidence</a>
-    </nav>
+   <section id="dataset" className="card phaseSection"><div className="sectionHead"><div><span className="eyebrow">EVALUATION DATASET EXPLORER</span><h2>Coverage and cases</h2><p>PASS and NOT EVALUATED are not treated as the same state; this demo reports executed coverage explicitly.</p></div><a className="textBtn" href="https://huggingface.co/datasets/h0000w/model-quality-release-gate" target="_blank" rel="noreferrer">HF Dataset</a></div><div className="coverageGrid"><div><span>Total</span><strong>{coverage.total}</strong></div><div><span>Executed</span><strong>{coverage.executed}</strong></div><div><span>Successful</span><strong>{coverage.successful}</strong></div><div><span>Failed</span><strong>{coverage.failed}</strong></div></div><div className="datasetTable"><div className="datasetHead"><span>Task</span><span>Category</span><span>Status</span><span>Severity</span><span>Latency</span></div>{simulated.slice(0,20).map(r=><div className="datasetRow" key={r.id}><span>{r.taskId}</span><span>{r.category}</span><span className={r.passed?'passText':'failText'}>{r.passed?'PASS':'FAIL'}</span><span>{r.severity??'—'}</span><span>{Math.round(r.latencyMs)} ms</span></div>)}</div></section>
 
-    <main id="dashboard">
-      <section className="controls card">
-        <div>
-          <label>Demo scenario</label>
-          <select value={scenarioId} onChange={e=>{setScenarioId(e.target.value);setImported(null);setWhyOpen(true)}}>
-            {demoScenarios.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <small>{scenario.description}</small>
-        </div>
-        <div>
-          <label>Evaluation profile</label>
-          <strong>CodeBench-Safety v1.0</strong>
-          <small>{gate.candidate.samples} deterministic evaluation cases · fixed release policy</small>
-        </div>
-        <div>
-          <label>Import candidate results</label>
-          <label className="upload"><Upload size={16}/> CSV / JSON / JSONL<input type="file" accept=".csv,.json,.jsonl" onChange={e=>onFile(e.target.files?.[0])}/></label>
-          <small>{message || 'Schema validated before release analysis.'}</small>
-        </div>
-      </section>
+   <section className="card regressionPanel"><div className="sectionHead"><div><h2>Regression analysis</h2><p>What changed enough to affect release confidence?</p></div></div><div className="regressionList">{regressions.length?regressions.map(r=><div className={`regressionRow ${r.status==='WARNING'?'warningRow':''}`} key={r.key}><AlertTriangle/><strong>{r.label}</strong><small>{r.direction==='lower'?`${r.deltaPercent>=0?'+':''}${r.deltaPercent.toFixed(1)}%`:`${r.delta>=0?'+':''}${r.delta.toFixed(1)} pts`}</small><small>threshold {r.threshold}%</small><b>{r.status}</b></div>):<div className="allClear"><CheckCircle2/> No configured regressions detected.</div>}</div></section>
 
-      <section className={`releaseHero card ${gate.decision.toLowerCase()}`}>
-        <div className="releaseModels">
-          <span>PRODUCTION BASELINE</span>
-          <strong>{scenario.baseline[0].model}</strong>
-          <b>→</b>
-          <span>CANDIDATE</span>
-          <strong>{candidate[0]?.model ?? 'Imported model'}</strong>
-        </div>
-        <div className="releaseVerdict">
-          <span className="eyebrow">RELEASE VERDICT</span>
-          <h2>{gate.decision}</h2>
-          <p>{gate.explanation}</p>
-          <div className="heroActions">
-            <button onClick={()=>setWhyOpen(!whyOpen)}>Why this decision?</button>
-            <a href="#failures">Investigate failures</a>
-          </div>
-        </div>
-      </section>
+   <section id="failures" className="card"><div className="sectionHead"><div><h2>Failure Explorer</h2><p>Individual failure → metric impact → release consequence.</p></div><div className="filters"><div className="search"><Search size={15}/><input placeholder="Search failures" value={query} onChange={e=>setQuery(e.target.value)}/></div><select value={category} onChange={e=>setCategory(e.target.value)}><option value="all">All categories</option>{categories.map(c=><option key={c}>{c}</option>)}</select><select value={severity} onChange={e=>setSeverity(e.target.value)}><option value="all">All severities</option><option>critical</option><option>high</option><option>medium</option><option>low</option></select></div></div><div className="failureList">{failures.slice(0,16).map(f=><details key={f.id}><summary><span><strong>{f.taskId}</strong> · {f.category} · {f.failureType}</span><span className={`severity ${f.severity}`}>{f.severity??'unknown'}</span></summary><div className="failureBody"><div><b>Prompt</b><pre>{f.prompt}</pre><b>Release impact</b><p>{/security|safety/i.test(`${f.category} ${f.failureType}`)?'Contributes directly to the safety gate and can block release.':'Contributes to reliability/correctness evidence and may downgrade the release decision.'}</p></div><div><b>Expected</b><pre>{f.expectedOutput}</pre><b>Candidate output</b><pre>{f.actualOutput}</pre></div></div></details>)}{!failures.length&&<p className="empty">No failures match the current filters.</p>}</div></section>
 
-      <section className="metrics">
-        {gate.comparisons.map(c=><article className="card metric" key={c.key}>
-          <div className="metricTop"><span>{c.label}</span><span className={`status ${c.status.toLowerCase()}`}>{c.status}</span></div>
-          <strong>{formatMetric(c.key,c.candidate)}</strong>
-          <small>Baseline {formatMetric(c.key,c.baseline)}</small>
-          <div className={`delta ${c.status.toLowerCase()}`}>{deltaText(c.key,c.delta,c.deltaPercent)}</div>
-        </article>)}
-      </section>
+   <section className={`decision card ${gate.decision.toLowerCase()}`}><div><span className="eyebrow">FINAL RELEASE DECISION</span><h2>{gate.decision}</h2><p>{gate.explanation}</p></div><div className="decisionStats"><div><span>Failures</span><strong>{gate.candidate.failures}</strong></div><div><span>Critical</span><strong>{gate.candidate.criticalFailures}</strong></div><div><span>Quality Δ</span><strong>{qualityDelta.toFixed(1)}</strong></div></div><div className="actions"><button onClick={exportReport}><Download size={16}/> Export report</button><button onClick={exportCsv}><Download size={16}/> Export CSV</button></div></section>
 
-      {whyOpen && <section className="card whyPanel">
-        <div className="sectionHead compact"><div><span className="eyebrow">EXPLAIN THIS DECISION</span><h2>Why {gate.decision}?</h2></div></div>
-        <div className="whyGrid">
-          <div>
-            <h3>Evidence</h3>
-            <ul>
-              <li>{improved.length} higher-is-better metrics improved.</li>
-              <li>{regressions.length} metric{regressions.length===1?'':'s'} exceeded release tolerance.</li>
-              <li>{gate.candidate.criticalFailures} critical failure{gate.candidate.criticalFailures===1?'':'s'} detected.</li>
-              <li>{gate.candidate.failures} total candidate failures across {gate.candidate.samples} cases.</li>
-            </ul>
-          </div>
-          <div>
-            <h3>Policy interpretation</h3>
-            <p>{gate.decision === 'SHIP' && 'All critical constraints pass. The candidate is stable or improved enough to proceed.'}</p>
-            <p>{gate.decision === 'INVESTIGATE' && 'The candidate has useful gains, but at least one non-critical release constraint requires engineering review before production promotion.'}</p>
-            <p>{gate.decision === 'HOLD' && 'A critical or material regression violates the release policy. Production promotion is blocked until remediation and re-evaluation.'}</p>
-          </div>
-        </div>
-      </section>}
-
-      <section id="regressions" className="card regressionPanel">
-        <div className="sectionHead compact">
-          <div><span className="eyebrow">REGRESSION DETECTION</span><h2>What changed?</h2><p>Only adverse changes drive the release gate.</p></div>
-        </div>
-        <div className="regressionList">
-          {regressions.map(c=><div className="regressionRow" key={c.key}><XCircle/><strong>{c.label}</strong><span>{deltaText(c.key,c.delta,c.deltaPercent)}</span><small>threshold {c.threshold}{c.key==='latencyMs'?'%':' pts'}</small><b>REGRESSION</b></div>)}
-          {warnings.map(c=><div className="regressionRow warningRow" key={c.key}><AlertTriangle/><strong>{c.label}</strong><span>{deltaText(c.key,c.delta,c.deltaPercent)}</span><small>inside hard limit but moved adversely</small><b>WARNING</b></div>)}
-          {!regressions.length && !warnings.length && <div className="allClear"><CheckCircle2/><span>No adverse metric movement requiring release review.</span></div>}
-        </div>
-      </section>
-
-      <section id="comparison" className="grid2">
-        <article className="card chart">
-          <span className="eyebrow">BASELINE VS CANDIDATE</span><h2>Normalized quality comparison</h2><p>Higher is better for helpfulness, safety, reliability and code pass rate.</p>
-          <ResponsiveContainer width="100%" height={320}><BarChart data={comparisonData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="metric"/><YAxis domain={[0,100]}/><Tooltip/><Legend/><Bar dataKey="Baseline" fill="currentColor" opacity={.35}/><Bar dataKey="Candidate" fill="currentColor" opacity={.9}/></BarChart></ResponsiveContainer>
-        </article>
-        <article className="card policyCard">
-          <span className="eyebrow">PHASE 1 RELEASE POLICY</span><h2>Deterministic gate</h2>
-          <div className="policyRows">
-            <div><span>Critical safety failure</span><b>HOLD</b></div>
-            <div><span>Major safety / reliability / correctness regression</span><b>HOLD</b></div>
-            <div><span>Performance regression beyond tolerance</span><b>INVESTIGATE</b></div>
-            <div><span>Minor adverse trade-off</span><b>INVESTIGATE</b></div>
-            <div><span>All constraints satisfied</span><b>SHIP</b></div>
-          </div>
-          <p className="policyNote">Default tolerances: helpfulness −2 pts · safety −1 pt · reliability −2 pts · code pass −2 pts · latency +5%.</p>
-        </article>
-      </section>
-
-      <section id="failures" className="card">
-        <div className="sectionHead">
-          <div><span className="eyebrow">FAILURE EXPLORER</span><h2>Why did the candidate fail?</h2><p>Individual failures connect directly to release-impact categories.</p></div>
-          <div className="filters">
-            <div className="search"><Search size={15}/><input placeholder="Search failures" value={query} onChange={e=>setQuery(e.target.value)}/></div>
-            <select value={severity} onChange={e=>setSeverity(e.target.value)}><option value="all">All severities</option><option>critical</option><option>high</option><option>medium</option><option>low</option></select>
-          </div>
-        </div>
-        <div className="failureList">
-          {failures.slice(0,16).map(f=><details key={f.id}>
-            <summary><span><strong>{f.taskId}</strong> · {f.category} · {f.failureType}</span><span className={`severity ${f.severity}`}>{f.severity ?? 'unknown'}</span></summary>
-            <div className="failureBody">
-              <div><b>Prompt</b><pre>{f.prompt}</pre><b>Expected</b><pre>{f.expectedOutput}</pre></div>
-              <div><b>Candidate output</b><pre>{f.actualOutput}</pre><b>Release impact</b><p>{f.category === 'Security' ? 'Contributes to the safety release gate and can block production promotion.' : 'Contributes to candidate reliability and code-quality evidence.'}</p></div>
-            </div>
-          </details>)}
-          {!failures.length&&<p className="empty">No failures match the current filters.</p>}
-        </div>
-      </section>
-
-      <section id="decision" className={`decision card ${gate.decision.toLowerCase()}`}>
-        <div><span className="eyebrow">FINAL RELEASE DECISION</span><h2>{gate.decision}</h2><p>{gate.explanation}</p></div>
-        <div className="decisionStats"><div><span>Failures</span><strong>{gate.candidate.failures}</strong></div><div><span>Critical</span><strong>{gate.candidate.criticalFailures}</strong></div><div><span>Quality Δ</span><strong>{(gate.candidate.qualityScore-gate.baseline.qualityScore).toFixed(1)}</strong></div></div>
-        <div className="actions"><button onClick={exportReport}><Download size={16}/> Export report</button><button onClick={exportCsv}><Download size={16}/> Export CSV</button></div>
-      </section>
-
-      <section id="evidence" className="card docs">
-        <ShieldAlert/><div><span className="eyebrow">EVIDENCE CHAIN</span><h2>Reproducible Phase 1 decision</h2><p>Model → Evaluation Dataset → Metrics → Regression Detection → Failure Analysis → Release Policy → <b>SHIP / INVESTIGATE / HOLD</b></p><p>Demo model names and results are fictional and intentionally deterministic. They demonstrate release-engineering methodology, not claims about real model performance.</p><p><a href="https://huggingface.co/datasets/h0000w/model-quality-release-gate" target="_blank" rel="noreferrer">Dataset</a> · <a href="https://huggingface.co/h0000w/model-quality-release-gate" target="_blank" rel="noreferrer">Model card</a> · <a href="https://huggingface.co/spaces/h0000w/model-quality-release-gate" target="_blank" rel="noreferrer">Live Space</a> · <a href="https://hendarmawan.se/model-quality-release-gate/" target="_blank" rel="noreferrer">Portfolio case study</a></p></div>
-      </section>
-    </main>
-
-    <footer><span>AI Model Release Control Center · Phase 1 · Hendarmawan, PhD Eng.</span><span><a href="https://github.com/h00w">GitHub</a> · <a href="https://www.linkedin.com/in/hender/">LinkedIn</a> · <a href="https://hendarmawan.se">hendarmawan.se</a></span></footer>
-  </div>;
+   <section className="card docs"><ShieldAlert/><div><h2>Phase 2 scope</h2><p>Evaluation Playground · version trends · release-policy simulator · what-if mode · safety dashboard · latency distribution · evaluation dataset explorer.</p><p>Demo mode remains deterministic and clearly separated from future live inference. This protects the credibility of the portfolio claim.</p></div></section>
+  </main><footer><span>AI Model Release Control Center · Hendarmawan, PhD Eng.</span><span><a href="https://hendarmawan.se/model-quality-release-gate/">Portfolio case study</a> · <a href="https://github.com/h00w/model-quality-release-gate">GitHub</a> · <a href="https://huggingface.co/spaces/h0000w/model-quality-release-gate">Hugging Face</a></span></footer>
+ </div>;
 }
