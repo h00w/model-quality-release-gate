@@ -21,27 +21,6 @@ REFERENCE = {
     "evidence": "run-2026-09-13-phase3-001:reference",
 }
 
-POST_TRAINING_METRICS = [
-    ["Code execution pass rate", "Quality", 71.4, 76.9, "+5.5 pts", "IMPROVED"],
-    ["Unit-test pass rate", "Quality", 68.2, 74.6, "+6.4 pts", "IMPROVED"],
-    ["SWE-bench-style success", "Quality", 31.7, 36.4, "+4.7 pts", "IMPROVED"],
-    ["Instruction following", "Quality", 88.0, 91.2, "+3.2 pts", "IMPROVED"],
-    ["Hallucination rate", "Reliability", 7.8, 6.1, "-1.7 pts", "IMPROVED"],
-    ["Safety", "Safety", 96.1, 94.8, "-1.3 pts", "REGRESSION"],
-    ["Latency P95", "Performance", "2.8 s", "3.1 s", "+10.7%", "REGRESSION"],
-    ["Cost / request", "Efficiency", "$0.031", "$0.035", "+12.9%", "REGRESSION"],
-    ["Output tokens / solved task", "Efficiency", 812, 861, "+6.0%", "REGRESSION"],
-]
-
-POST_TRAINING_HYPOTHESES = [
-    ["01", "Training-data distribution shift", 88, "SFT data may overweight task completion relative to secure/defensive coding behavior."],
-    ["02", "Instruction-data contamination / conflicting supervision", 73, "Conflicting examples can improve aggregate coding quality while weakening safety behavior."],
-    ["03", "Training-objective overspecialization", 64, "Completion-oriented optimization may trade conservative behavior for higher task success."],
-    ["04", "Longer generated trajectories", 59, "Longer outputs can explain latency, token-efficiency and cost regressions."],
-    ["05", "Serving / inference configuration", 41, "Batching, decoding, quantization or max-token settings can create apparent model regressions."],
-    ["06", "Reward-model / judge bias (if a preference stage exists)", 26, "Not a primary SFT hypothesis; relevant only if the candidate also passed through a preference/reward stage."],
-]
-
 POST_TRAINING_EXPERIMENTS = [
     "Re-run on the frozen regression set with identical inference configuration.",
     "Stratify safety failures by task category, language, vulnerability class and prompt length.",
@@ -52,6 +31,32 @@ POST_TRAINING_EXPERIMENTS = [
     "Repeat evaluation under matched decoding, batching, quantization and max-token configuration.",
     "Slice latency and cost by generated-token count to separate model behavior from serving overhead.",
 ]
+
+
+def _pct_delta(baseline, candidate):
+    return 0.0 if baseline == 0 else (candidate - baseline) / baseline * 100
+
+
+def _signal_higher(baseline, candidate, investigate_pts, hold_pts):
+    delta = candidate - baseline
+    if delta < -hold_pts:
+        return "CRITICAL"
+    if delta < -investigate_pts:
+        return "REGRESSION"
+    if delta > 0:
+        return "IMPROVED"
+    return "STABLE"
+
+
+def _signal_lower(baseline, candidate, investigate_pct, hold_pct):
+    delta_pct = _pct_delta(baseline, candidate)
+    if delta_pct > hold_pct:
+        return "CRITICAL"
+    if delta_pct > investigate_pct:
+        return "REGRESSION"
+    if delta_pct < 0:
+        return "IMPROVED"
+    return "STABLE"
 
 
 def reference_release():
@@ -73,9 +78,36 @@ This deterministic reference path remains the reproducible release-engineering b
     return md, pd.DataFrame(rows, columns=["Metric", "Baseline", "Candidate", "Delta", "Gate"])
 
 
-def post_training_lab():
-    decision = "INVESTIGATE"
-    summary = """## 🟡 INVESTIGATE — Post-Training Experiment Lab
+def post_training_lab(code_pass=76.9, safety=94.8, latency_p95=3.1, cost=0.035, output_tokens=861):
+    code_pass = float(code_pass)
+    safety = float(safety)
+    latency_p95 = float(latency_p95)
+    cost = float(cost)
+    output_tokens = float(output_tokens)
+
+    rows = [
+        ["Code execution pass rate", "Quality", 71.4, code_pass, f"{code_pass-71.4:+.1f} pts", _signal_higher(71.4, code_pass, 2, 8)],
+        ["Unit-test pass rate", "Quality", 68.2, 74.6, "+6.4 pts", "IMPROVED"],
+        ["SWE-bench-style success", "Quality", 31.7, 36.4, "+4.7 pts", "IMPROVED"],
+        ["Instruction following", "Quality", 88.0, 91.2, "+3.2 pts", "IMPROVED"],
+        ["Hallucination rate", "Reliability", 7.8, 6.1, "-1.7 pts", "IMPROVED"],
+        ["Safety", "Safety", 96.1, safety, f"{safety-96.1:+.1f} pts", _signal_higher(96.1, safety, 1, 3)],
+        ["Latency P95", "Performance", "2.8 s", f"{latency_p95:.1f} s", f"{_pct_delta(2.8, latency_p95):+.1f}%", _signal_lower(2.8, latency_p95, 8, 25)],
+        ["Cost / request", "Efficiency", "$0.031", f"${cost:.3f}", f"{_pct_delta(0.031, cost):+.1f}%", _signal_lower(0.031, cost, 10, 30)],
+        ["Output tokens / solved task", "Efficiency", 812, round(output_tokens), f"{_pct_delta(812, output_tokens):+.1f}%", _signal_lower(812, output_tokens, 5, 20)],
+    ]
+
+    signals = [row[5] for row in rows]
+    decision = "HOLD" if "CRITICAL" in signals else "INVESTIGATE" if "REGRESSION" in signals else "SHIP"
+    regressions = [row[0] for row in rows if row[5] in {"REGRESSION", "CRITICAL"}]
+    improvements = [row[0] for row in rows if row[5] == "IMPROVED"]
+    icon = "🟢" if decision == "SHIP" else "🔴" if decision == "HOLD" else "🟡"
+    why = (
+        f"{len(improvements)} metric(s) improved; regressions requiring attention: {', '.join(regressions)}."
+        if regressions
+        else f"{len(improvements)} metric(s) improved and no configured release dimension crossed its tolerance."
+    )
+    summary = f"""## {icon} {decision} — Post-Training Experiment Lab
 
 **Baseline:** `CodeModel-v1`  
 **Candidate:** `CodeModel-v2-sft`  
@@ -83,11 +115,29 @@ def post_training_lab():
 **Dataset:** `10,000 coding tasks`  
 **Evaluation:** frozen coding + safety regression suite
 
-Code-generation quality improves materially, but safety, P95 latency, cost and token efficiency regress beyond investigation thresholds. **A model improvement is not automatically a product improvement.**
+{why}
+
+**A model improvement is not automatically a product improvement.** Edit the candidate values below and rerun the experiment to test counterfactual release outcomes.
 
 > Illustrative research-engineering experiment: values demonstrate the workflow and are not claims about a deployed foundation model.
 """
-    hypotheses = pd.DataFrame(POST_TRAINING_HYPOTHESES, columns=["Rank", "Potential cause", "Hypothesis strength", "Why investigate it"])
+
+    safety_regressed = _signal_higher(96.1, safety, 1, 3) in {"REGRESSION", "CRITICAL"}
+    latency_regressed = _signal_lower(2.8, latency_p95, 8, 25) in {"REGRESSION", "CRITICAL"}
+    efficiency_regressed = _signal_lower(0.031, cost, 10, 30) in {"REGRESSION", "CRITICAL"} or _signal_lower(812, output_tokens, 5, 20) in {"REGRESSION", "CRITICAL"}
+    hypotheses_rows = [
+        ["01", "Training-data distribution shift", 88 if safety_regressed else 62, "SFT data may overweight task completion relative to secure/defensive coding behavior."],
+        ["02", "Instruction-data contamination / conflicting supervision", 73 if safety_regressed else 48, "Conflicting examples can improve aggregate coding quality while weakening safety behavior."],
+        ["03", "Training-objective overspecialization", 64, "Completion-oriented optimization may trade conservative behavior for higher task success."],
+        ["04", "Longer generated trajectories", 59 if latency_regressed or efficiency_regressed else 35, "Longer outputs can explain latency, token-efficiency and cost regressions."],
+        ["05", "Serving / inference configuration", 41 if latency_regressed else 20, "Batching, decoding, quantization or max-token settings can create apparent model regressions."],
+        ["06", "Reward-model / judge bias (if a preference stage exists)", 26, "Not a primary SFT hypothesis; relevant only if the candidate also passed through a preference/reward stage."],
+    ]
+    hypotheses_rows.sort(key=lambda row: row[2], reverse=True)
+    for index, row in enumerate(hypotheses_rows, start=1):
+        row[0] = f"{index:02d}"
+
+    hypotheses = pd.DataFrame(hypotheses_rows, columns=["Rank", "Potential cause", "Hypothesis strength", "Why investigate it"])
     experiments = "### Recommended experiments\n" + "\n".join(f"{i+1}. {item}" for i, item in enumerate(POST_TRAINING_EXPERIMENTS))
     artifact = {
         "schemaVersion": "1.0.0",
@@ -100,10 +150,14 @@ Code-generation quality improves materially, but safety, P95 latency, cost and t
             "datasetSize": 10000,
             "decision": decision,
         },
-        "hypotheses": [{"rank": r[0], "label": r[1], "strength": r[2]} for r in POST_TRAINING_HYPOTHESES],
+        "metrics": [
+            {"name": row[0], "group": row[1], "baseline": row[2], "candidate": row[3], "delta": row[4], "signal": row[5]}
+            for row in rows
+        ],
+        "hypotheses": [{"rank": row[0], "label": row[1], "strength": row[2]} for row in hypotheses_rows],
         "recommendedExperiments": POST_TRAINING_EXPERIMENTS,
     }
-    return summary, pd.DataFrame(POST_TRAINING_METRICS, columns=["Evaluation", "Group", "Baseline", "Candidate", "Delta", "Signal"]), hypotheses, experiments, json.dumps(artifact, indent=2)
+    return summary, pd.DataFrame(rows, columns=["Evaluation", "Group", "Baseline", "Candidate", "Delta", "Signal"]), hypotheses, experiments, json.dumps(artifact, indent=2)
 
 
 def run_live(prompt, baseline_model, candidate_model, use_judge):
@@ -174,13 +228,24 @@ A production-oriented AI evaluation and release-engineering system focused on th
 """)
 
     with gr.Tab("Post-Training Experiment Lab"):
+        gr.Markdown("Edit the candidate metrics to run a lightweight counterfactual post-training experiment. The release decision and hypothesis ranking recompute from the observed regression pattern.")
+        with gr.Row():
+            pt_code_pass = gr.Number(value=76.9, label="Code execution pass rate %")
+            pt_safety = gr.Number(value=94.8, label="Safety %")
+            pt_latency = gr.Number(value=3.1, label="P95 latency seconds")
+            pt_cost = gr.Number(value=0.035, label="Cost / request USD")
+            pt_tokens = gr.Number(value=861, label="Output tokens / solved task")
+        pt_run = gr.Button("Recompute experiment", variant="primary")
         pt_summary = gr.Markdown()
         pt_metrics = gr.Dataframe(label="Baseline vs candidate after training intervention")
         gr.Markdown("### What would I investigate?\nA regression number is an observation, not an explanation. Rank plausible causes, then design experiments that can falsify them.")
         pt_hypotheses = gr.Dataframe(label="Potential causes")
         pt_experiments = gr.Markdown()
         pt_artifact = gr.Code(language="json", label="Machine-readable experiment artifact")
-        demo.load(post_training_lab, outputs=[pt_summary, pt_metrics, pt_hypotheses, pt_experiments, pt_artifact])
+        pt_outputs = [pt_summary, pt_metrics, pt_hypotheses, pt_experiments, pt_artifact]
+        pt_inputs = [pt_code_pass, pt_safety, pt_latency, pt_cost, pt_tokens]
+        demo.load(post_training_lab, inputs=pt_inputs, outputs=pt_outputs)
+        pt_run.click(post_training_lab, inputs=pt_inputs, outputs=pt_outputs)
 
     with gr.Tab("Reference Release Gate"):
         ref_md = gr.Markdown()
