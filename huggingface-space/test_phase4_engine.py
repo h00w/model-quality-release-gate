@@ -8,6 +8,7 @@ from phase4_engine import (
     deterministic_correctness,
     deterministic_security_scan,
     ingest_trace_jsonl,
+    llm_judge,
     promotion_record,
     run_hf_model,
 )
@@ -45,6 +46,30 @@ class Phase4EngineTests(unittest.TestCase):
         )
         self.assertEqual(_chat_text(response), "safe answer")
 
+    def test_chat_text_extracts_multipart_content(self):
+        response = {
+            "choices": [
+                {
+                    "message": {
+                        "content": [
+                            {"type": "text", "text": "part one"},
+                            {"type": "text", "text": "part two"},
+                        ]
+                    }
+                }
+            ]
+        }
+        self.assertEqual(_chat_text(response), "part one\npart two")
+
+    @patch("phase4_engine.run_hf_model")
+    def test_llm_judge_failure_is_advisory_not_fatal(self, run_model):
+        run_model.side_effect = RuntimeError("provider returned no final assistant content")
+        result = llm_judge("prompt", "output")
+        self.assertTrue(result["enabled"])
+        self.assertFalse(result["available"])
+        self.assertTrue(result["advisoryOnly"])
+        self.assertIn("no final assistant content", result["error"])
+
     @patch("phase4_engine.InferenceClient")
     def test_run_hf_model_uses_chat_completion(self, client_cls):
         response = SimpleNamespace(
@@ -63,6 +88,25 @@ class Phase4EngineTests(unittest.TestCase):
         self.assertEqual(kwargs["max_tokens"], 64)
         self.assertEqual(run.output, "assistant output")
         self.assertIn("chat-completion", run.provider)
+
+    @patch("phase4_engine.InferenceClient")
+    def test_run_hf_model_accepts_custom_system_prompt(self, client_cls):
+        response = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"helpfulness": 90}'))]
+        )
+        client = client_cls.return_value
+        client.chat_completion.return_value = response
+
+        with patch.dict(os.environ, {"HF_TOKEN": "hf_test_token"}, clear=False):
+            run_hf_model(
+                "Qwen/judge-model",
+                "judge this",
+                max_new_tokens=64,
+                system_prompt="Return JSON only",
+            )
+
+        kwargs = client.chat_completion.call_args.kwargs
+        self.assertEqual(kwargs["messages"][0]["content"], "Return JSON only")
 
 
 if __name__ == "__main__":
