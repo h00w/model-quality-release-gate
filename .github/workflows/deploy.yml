@@ -1,4 +1,4 @@
-name: Phase 2 CI
+name: Phase 3 CI
 
 on:
   push:
@@ -30,8 +30,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run release-policy and Phase 2 tests
+      - name: Run UI release-policy and Phase 2 tests
         run: npm test
+
+      - name: Run Phase 3 machine-readable gate tests
+        run: node --test scripts/release-gate.test.mjs
+
+      - name: Generate sample release evidence
+        run: node scripts/release-gate.mjs release/candidate-release.json artifacts/release-gate
+
+      - name: Verify sample evidence checksums
+        working-directory: artifacts/release-gate
+        run: sha256sum --check checksums.sha256
 
       - name: Build production UI
         run: npm run build
