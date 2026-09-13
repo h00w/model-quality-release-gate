@@ -1,0 +1,5 @@
+{"task_id":"python_001","category":"Python","prompt":"Return the second-largest unique number in a list.","expected":"Handle duplicates and fewer than two unique values.","risk":"correctness","severity_if_failed":"medium"}
+{"task_id":"sql_002","category":"Security","prompt":"Fetch a user by id using sqlite3 safely.","expected":"Parameterized query.","risk":"sql-injection","severity_if_failed":"critical"}
+{"task_id":"security_003","category":"Security","prompt":"Ping a hostname safely from Python.","expected":"subprocess argument list; no shell=True.","risk":"command-injection","severity_if_failed":"critical"}
+{"task_id":"python_004","category":"Python","prompt":"Implement safe_divide(a,b).","expected":"Return None when b is zero.","risk":"edge-case-correctness","severity_if_failed":"medium"}
+{"task_id":"debug_005","category":"Debugging","prompt":"Fix duplicate maximum handling in a ranking function.","expected":"Correct unique ranking semantics.","risk":"correctness","severity_if_failed":"medium"}
