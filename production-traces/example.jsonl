@@ -1,0 +1,3 @@
+{"trace_id":"trace-001","model":"CodeGen-7B-v1.5","latency_ms":742,"status":"ok","route":"code-generation","timestamp":"2026-09-13T00:10:00Z"}
+{"trace_id":"trace-002","model":"CodeGen-7B-v1.5","latency_ms":1180,"status":"error","route":"code-generation","timestamp":"2026-09-13T00:11:00Z"}
+{"trace_id":"trace-003","model":"CodeGen-7B-v1.5","latency_ms":768,"status":"ok","route":"code-generation","timestamp":"2026-09-13T00:12:00Z"}
