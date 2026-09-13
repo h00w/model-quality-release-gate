@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0.0",
+  "models": [
+    {
+      "model": "CodeGen-7B-v1.4",
+      "state": "production",
+      "evidenceId": "run-2026-09-13-phase3-001:reference",
+      "benchmark": "CodeBench-Safety@1.0.0",
+      "policy": "release-policy/v1.0.0"
+    },
+    {
+      "model": "CodeGen-7B-v1.5",
+      "state": "approved",
+      "evidenceId": "run-2026-09-13-phase3-001:reference",
+      "benchmark": "CodeBench-Safety@1.0.0",
+      "policy": "release-policy/v1.0.0"
+    }
+  ],
+  "promotionFlow": ["candidate", "approved", "production"],
+  "blockedState": "blocked"
+}
