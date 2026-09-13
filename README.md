@@ -1,5 +1,9 @@
 # AI Model Release Control Center
 
+[![Phase 3 CI](https://github.com/h00w/model-quality-release-gate/actions/workflows/deploy.yml/badge.svg)](https://github.com/h00w/model-quality-release-gate/actions/workflows/deploy.yml)
+[![Model Release Gate](https://github.com/h00w/model-quality-release-gate/actions/workflows/release-gate.yml/badge.svg)](https://github.com/h00w/model-quality-release-gate/actions/workflows/release-gate.yml)
+![Reference decision](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/h00w/model-quality-release-gate/main/badges/release-gate.json)
+
 A production-oriented AI evaluation and release-engineering project for deciding whether a candidate coding model is ready to ship.
 
 > **Evaluate → Compare → Investigate → Simulate → Gate → Ship**
@@ -7,66 +11,112 @@ A production-oriented AI evaluation and release-engineering project for deciding
 ## Phase status
 
 **Phase 1 — Essential release gate: COMPLETE**  
-**Phase 2 — Interactive evaluation & release simulation: COMPLETE**
+**Phase 2 — Interactive evaluation & release simulation: COMPLETE**  
+**Phase 3 — Enforceable release engineering: COMPLETE**
 
-### Phase 1
+## Phase 3 capabilities
 
-- Executive, decision-first dashboard
-- Baseline vs candidate model comparison
-- Metric deltas and tolerance-aware regression detection
-- Deterministic **SHIP / INVESTIGATE / HOLD** policy
-- Human-readable decision explanation
-- Failure Explorer with severity and release-impact context
-- Six deterministic demo scenarios
-- CSV / JSON / JSONL candidate-result import
-- Exportable report and CSV evidence
+Phase 3 moves the project from an interactive evaluation application into an auditable release-control plane:
 
-### Phase 2
+- **Machine-readable release decisions** in `decision.json`
+- **Tamper-evident evidence bundles** with SHA-256 checksums
+- **Run manifests** tying benchmark version, policy version, source commit and workflow run to the decision
+- **Enforceable CI gate**: a `HOLD` result exits non-zero and produces a failing GitHub status check
+- **Evidence preservation on blocked releases** through GitHub Actions artifacts
+- **Versioned benchmark datasets** under `benchmarks/codebench-safety/v1.0.0/`
+- **Versioned Hugging Face publication** under `huggingface-dataset/versions/v1.0.0/`
+- **Workflow and release-decision badges**
+- **Automated tests** for SHIP / INVESTIGATE / HOLD machine-readable outcomes
 
-- **Evaluation Playground** for prompt-level baseline/candidate examples
-- **Version Trend** selector across quality, safety, reliability and latency
-- **Release Policy Simulator** with configurable tolerances
-- **What-If Mode** that applies hypothetical candidate changes without mutating source evidence
-- **AI Code Safety Dashboard** with safety score and severity counts
-- **Performance Dashboard** with P50/P90/P95/P99 latency and timeout-rate view
-- **Evaluation Dataset Explorer** with executed coverage and case-level evidence
-- Category + severity failure filtering
-- Phase 2 helper-library tests for simulation, latency percentiles, safety aggregation and coverage
-- CI validation for React/TypeScript and Hugging Face Space Python source
+> To make the gate a literal merge blocker, configure the `Enforce model release policy` status check as a required check in the repository's branch/ruleset settings. The workflow already fails on `HOLD`; repository policy determines whether GitHub forbids merging that failing check.
 
-## Live publication stack
+## Release evidence bundle
 
-| Layer | Purpose | Link |
-|---|---|---|
-| GitHub | Source of truth, release policy, tests, CI | https://github.com/h00w/model-quality-release-gate |
-| Hugging Face model card | Methodology and artifact index | https://huggingface.co/h0000w/model-quality-release-gate |
-| Hugging Face dataset | Reproducible evaluation evidence | https://huggingface.co/datasets/h0000w/model-quality-release-gate |
-| Hugging Face Space | Canonical interactive Phase 2 demo | https://huggingface.co/spaces/h0000w/model-quality-release-gate |
-| Portfolio case study | Recruiter-facing engineering narrative | https://hendarmawan.se/projects/model-quality-release-gate/ |
-| Agentic AI Academy | Evaluation/release-control cross-link | https://hendarmawan.se/agentic-ai/ |
+Running:
 
-## Architecture
+```bash
+node scripts/release-gate.mjs release/candidate-release.json artifacts/release-gate
+```
+
+produces:
 
 ```text
-Baseline evaluation          Candidate evaluation
-        │                            │
-        └────────────┬───────────────┘
-                     ↓
-             Metric Aggregation
-                     ↓
-             Baseline Comparison
-                     ↓
-            Regression Detection
-                     ↓
-              Failure Analysis
-                     ↓
-         Policy + What-If Simulation
-                     ↓
-          SHIP / INVESTIGATE / HOLD
-                     ↓
- Playground · Safety · Performance
- Dataset Explorer · Exportable Evidence
+artifacts/release-gate/
+├── candidate-release.json
+├── decision.json
+├── manifest.json
+├── checksums.sha256
+└── summary.md
 ```
+
+The manifest records an evidence identity built from the evaluation run and source commit, while `checksums.sha256` makes later modification detectable.
+
+Example decision shape:
+
+```json
+{
+  "decision": "SHIP",
+  "policyVersion": "release-policy/v1.0.0",
+  "run": {
+    "benchmark": {
+      "name": "CodeBench-Safety",
+      "version": "1.0.0"
+    },
+    "sourceCommit": "<git-sha>",
+    "workflowRunId": "<actions-run-id>"
+  }
+}
+```
+
+## CI enforcement model
+
+`.github/workflows/release-gate.yml` executes the following sequence:
+
+```text
+Candidate release input
+        ↓
+Machine-readable gate
+        ↓
+Decision + manifest
+        ↓
+SHA-256 verification
+        ↓
+Upload evidence artifact
+        ↓
+Decision enforcement
+        ↓
+SHIP         → status check passes
+INVESTIGATE  → status check passes, review required by process
+HOLD         → status check fails
+```
+
+Evidence is uploaded **before** enforcement, so a blocked release retains the diagnostic record that caused the failure.
+
+## Versioned benchmark strategy
+
+Current benchmark:
+
+```text
+CodeBench-Safety v1.0.0
+```
+
+Repository definition:
+
+```text
+benchmarks/codebench-safety/v1.0.0/
+├── manifest.json
+└── cases.jsonl
+```
+
+Hugging Face publication:
+
+```text
+huggingface-dataset/versions/v1.0.0/
+├── manifest.json
+└── cases.jsonl
+```
+
+Benchmark changes should create a new semantic version instead of replacing historical cases. This keeps old release decisions reproducible and prevents silent benchmark drift.
 
 ## Release policy
 
@@ -78,16 +128,6 @@ Baseline evaluation          Candidate evaluation
 6. Minor adverse trade-off → `INVESTIGATE`
 7. All critical constraints pass and quality is stable/improved → `SHIP`
 
-Default tolerances:
-
-| Metric | Direction | Default tolerance |
-|---|---|---:|
-| Helpfulness | Higher is better | -2 pts |
-| Safety | Higher is better | -1 pt |
-| Reliability | Higher is better | -2 pts |
-| Code pass rate | Higher is better | -2 pts |
-| Latency | Lower is better | +5% |
-
 Overall quality score:
 
 ```text
@@ -96,39 +136,51 @@ Overall quality score:
 
 Latency remains an independent release constraint.
 
-## Demo methodology
+## Interactive Phase 2 workbench
 
-The Phase 1/2 demo data is intentionally **fictional and deterministic**. It proves release-engineering methodology without making unsupported claims about real models.
+The live app still provides:
 
-The Phase 2 Playground is also deterministic. Live-model inference remains a later hardened capability rather than being mixed into benchmark claims.
+- Evaluation Playground
+- baseline/candidate comparison
+- version trends
+- release-policy simulator
+- What-If Mode
+- safety dashboard
+- P50/P90/P95/P99 performance view
+- dataset coverage explorer
+- failure explorer
+
+The deterministic demo is intentionally separated from unsupported claims about real foundation-model performance.
+
+## Live publication stack
+
+| Layer | Purpose | Link |
+|---|---|---|
+| GitHub | Source, release engine, CI enforcement, evidence workflow | https://github.com/h00w/model-quality-release-gate |
+| Hugging Face Space | Interactive evaluation/control demo | https://huggingface.co/spaces/h0000w/model-quality-release-gate |
+| Hugging Face dataset | Versioned evaluation benchmark/evidence | https://huggingface.co/datasets/h0000w/model-quality-release-gate |
+| Hugging Face methodology card | Release policy and artifact index | https://huggingface.co/h0000w/model-quality-release-gate |
+| Portfolio case study | Recruiter-facing engineering narrative | https://hendarmawan.se/projects/model-quality-release-gate/ |
+| Agentic AI Academy | Evaluation/release-control cross-link | https://hendarmawan.se/agentic-ai/ |
 
 ## Validation
 
 ```bash
 npm install
 npm test
+node --test scripts/release-gate.test.mjs
+node scripts/release-gate.mjs release/candidate-release.json artifacts/release-gate
+cd artifacts/release-gate && sha256sum --check checksums.sha256
 npm run build
 python -m py_compile huggingface-space/app.py
-```
-
-CI runs release-policy tests, Phase 2 helper tests, production TypeScript/Vite build and Space-source syntax validation on every push and pull request.
-
-## Hugging Face publication
-
-GitHub is the engineering source of truth. These directories are automatically synchronized through `.github/workflows/publish-huggingface.yml` using the repository `HF_TOKEN` secret:
-
-```text
-huggingface-model/      → https://huggingface.co/h0000w/model-quality-release-gate
-huggingface-dataset/    → https://huggingface.co/datasets/h0000w/model-quality-release-gate
-huggingface-space/      → https://huggingface.co/spaces/h0000w/model-quality-release-gate
 ```
 
 ## Roadmap
 
 - **Phase 1 — COMPLETE:** executive dashboard, comparison, regression detection, release gate, failure explorer, demo scenarios.
-- **Phase 2 — COMPLETE:** evaluation playground, version trends, release-policy simulator, what-if mode, safety/performance dashboards, dataset explorer.
-- **Phase 3:** evidence/audit trail, evaluation artifacts, enforceable CI gate, badges, versioned datasets.
-- **Phase 4:** hardened real-model inference, LLM judge, production trace ingestion, historical model registry.
+- **Phase 2 — COMPLETE:** evaluation playground, trends, policy simulator, what-if mode, safety/performance dashboards, dataset explorer.
+- **Phase 3 — COMPLETE:** audit evidence, machine-readable artifacts, CI enforcement, badges, versioned benchmarks and published dataset versions.
+- **Phase 4:** hardened real-model inference, LLM judge, production trace ingestion and historical model registry.
 
 ## Author
 
