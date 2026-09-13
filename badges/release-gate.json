@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "label": "release gate",
+  "message": "SHIP",
+  "color": "brightgreen",
+  "namedLogo": "githubactions"
+}
