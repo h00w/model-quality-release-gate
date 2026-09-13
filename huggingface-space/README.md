@@ -1,5 +1,5 @@
 ---
-title: Model Quality Release Gate
+title: AI Model Release Control Center
 emoji: 🚦
 colorFrom: blue
 colorTo: indigo
@@ -10,15 +10,33 @@ pinned: true
 license: mit
 ---
 
-# Model Quality Release Gate for AI Code Generation
+# AI Model Release Control Center
 
-Evaluate baseline and candidate coding models, inspect failures, detect regressions, and produce an explainable **SHIP / INVESTIGATE / HOLD** decision.
+**Evaluate → Compare → Investigate → Simulate → Gate → Ship**
+
+Phase 2 turns the deterministic model-quality release gate into an interactive engineering workbench for AI code-generation model releases.
+
+## Phase 2 capabilities
+
+- Executive baseline-vs-candidate release dashboard
+- Six deterministic SHIP / INVESTIGATE / HOLD scenarios
+- Evaluation Playground for prompt-level comparison
+- Configurable release-policy simulator
+- What-if analysis for hypothetical metric shifts
+- AI code safety view
+- Latency/performance view
+- Dataset explorer and evidence links
+- Failure inspection with release-impact context
+
+The demo data is intentionally fictional and deterministic. It demonstrates release-engineering methodology without making unsupported benchmark claims about real models.
+
+## Public evidence chain
 
 - Source: https://github.com/h00w/model-quality-release-gate
 - Model card: https://huggingface.co/h0000w/model-quality-release-gate
 - Dataset: https://huggingface.co/datasets/h0000w/model-quality-release-gate
 - Space: https://huggingface.co/spaces/h0000w/model-quality-release-gate
-- Portfolio case study: https://hendarmawan.se/model-quality-release-gate/
+- Portfolio case study: https://hendarmawan.se/projects/model-quality-release-gate/
 - Agentic AI Academy: https://hendarmawan.se/agentic-ai/
 
-The Space supports deterministic demo evaluation and a real Hugging Face Inference comparison when an `HF_TOKEN` Space secret is configured.
+Phase 3 will add auditable evaluation artifacts and enforceable CI release gating. Hardened real-model inference remains Phase 4 scope.
