@@ -168,7 +168,7 @@ The deterministic demo is intentionally separated from unsupported claims about 
 ```bash
 npm install
 npm test
-node --test scripts/release-gate.test.mjs
+node --test scripts/release-gate.node-test.mjs
 node scripts/release-gate.mjs release/candidate-release.json artifacts/release-gate
 cd artifacts/release-gate && sha256sum --check checksums.sha256
 npm run build
