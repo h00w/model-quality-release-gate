@@ -4,7 +4,7 @@
 [![Model Release Gate](https://github.com/h00w/model-quality-release-gate/actions/workflows/release-gate.yml/badge.svg)](https://github.com/h00w/model-quality-release-gate/actions/workflows/release-gate.yml)
 ![Reference decision](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/h00w/model-quality-release-gate/main/badges/release-gate.json)
 
-## Did the new model actually get better — and is it safe to ship?
+## Did the new model actually get better and is it safe to ship?
 
 A production-oriented AI evaluation and release-engineering system for coding models, with a dedicated **Post-Training Experiment Lab** connecting model-improvement work to release decisions and production feedback.
 
