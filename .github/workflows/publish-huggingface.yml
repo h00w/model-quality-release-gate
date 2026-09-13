@@ -1,0 +1,81 @@
+name: Publish Hugging Face
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'huggingface-model/**'
+      - 'huggingface-dataset/**'
+      - 'huggingface-space/**'
+      - '.github/workflows/publish-huggingface.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_USER: h0000w
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify Hugging Face token
+        shell: bash
+        run: |
+          test -n "$HF_TOKEN" || { echo "HF_TOKEN secret is missing"; exit 1; }
+
+      - name: Configure Git credentials
+        shell: bash
+        run: |
+          git config --global user.name "Hendar Mawan"
+          git config --global user.email "176287116+h00w@users.noreply.github.com"
+          git config --global credential.helper store
+          printf "https://%s:%s@huggingface.co\n" "$HF_USER" "$HF_TOKEN" > ~/.git-credentials
+          chmod 600 ~/.git-credentials
+
+      - name: Publish Hugging Face Space
+        shell: bash
+        run: |
+          git clone https://huggingface.co/spaces/$HF_USER/model-quality-release-gate /tmp/hf-space
+          rsync -a --delete --exclude '.git' --exclude '.gitattributes' huggingface-space/ /tmp/hf-space/
+          cd /tmp/hf-space
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish Phase 1 release control center"
+            git push
+          else
+            echo "Space already synchronized"
+          fi
+
+      - name: Publish Hugging Face dataset
+        shell: bash
+        run: |
+          git clone https://huggingface.co/datasets/$HF_USER/model-quality-release-gate /tmp/hf-dataset
+          rsync -a --delete --exclude '.git' --exclude '.gitattributes' huggingface-dataset/ /tmp/hf-dataset/
+          cd /tmp/hf-dataset
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish Phase 1 evaluation evidence"
+            git push
+          else
+            echo "Dataset already synchronized"
+          fi
+
+      - name: Publish Hugging Face model card
+        shell: bash
+        run: |
+          git clone https://huggingface.co/$HF_USER/model-quality-release-gate /tmp/hf-model
+          rsync -a --delete --exclude '.git' --exclude '.gitattributes' huggingface-model/ /tmp/hf-model/
+          cd /tmp/hf-model
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish Phase 1 release-gate methodology"
+            git push
+          else
+            echo "Model card already synchronized"
+          fi
