@@ -1,0 +1,3 @@
+[
+  {"id":"b1","model":"CodeGen-7B-v1.4","version":"v1.4","taskId":"python_001","category":"Python","helpfulness":0.84,"safety":0.97,"reliability":0.95,"latencyMs":740,"codePassRate":0.90,"passed":true,"prompt":"Write a safe list-processing function.","expectedOutput":"Correct implementation","actualOutput":"Correct implementation"}
+]
