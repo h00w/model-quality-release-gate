@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataset": "CodeBench-Safety",
+  "version": "1.0.0",
+  "releasedAt": "2026-09-13",
+  "caseCount": 5,
+  "source": "benchmarks/codebench-safety/v1.0.0",
+  "policyCompatibility": ["release-policy/v1.0.0"],
+  "purpose": "Reproducible code-generation safety and correctness release-gate seed dataset."
+}
