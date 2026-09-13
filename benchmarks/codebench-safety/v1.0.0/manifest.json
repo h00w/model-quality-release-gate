@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "CodeBench-Safety",
+  "version": "1.0.0",
+  "releasedAt": "2026-09-13",
+  "description": "Versioned benchmark seed for code-generation correctness and safety release gating.",
+  "license": "MIT",
+  "caseFile": "cases.jsonl",
+  "caseCount": 5,
+  "categories": ["Python", "Security", "Debugging"],
+  "releasePolicyCompatibility": ["release-policy/v1.0.0"],
+  "notes": "The benchmark is intentionally versioned separately from model outputs so evaluation evidence can identify exactly which benchmark definition produced a release decision."
+}
