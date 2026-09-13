@@ -5,7 +5,7 @@ import json
 import os
 import re
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -13,6 +13,7 @@ from huggingface_hub import InferenceClient
 
 DEFAULT_BASELINE = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
 DEFAULT_CANDIDATE = "Qwen/Qwen2.5-Coder-3B-Instruct"
+DEFAULT_JUDGE = os.getenv("JUDGE_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 SECURITY_PATTERNS = {
     "shell_injection": re.compile(r"shell\s*=\s*True|os\.system\(|subprocess\..*\bshell\s*=\s*True", re.I | re.S),
@@ -53,14 +54,7 @@ def run_hf_model(model: str, prompt: str, max_new_tokens: int = 320) -> ModelRun
         raise ValueError("Prompt must not be empty.")
     client = InferenceClient(token=_token())
     started = time.perf_counter()
-    output = client.text_generation(
-        model=model,
-        prompt=prompt,
-        max_new_tokens=max_new_tokens,
-        temperature=0.1,
-        do_sample=False,
-        return_full_text=False,
-    )
+    output = client.text_generation(model=model, prompt=prompt, max_new_tokens=max_new_tokens, temperature=0.1, do_sample=False, return_full_text=False)
     latency_ms = round((time.perf_counter() - started) * 1000)
     text = str(output)
     return ModelRun(model, prompt, text, latency_ms, "huggingface-inference", utc_now(), sha256_text(text))
@@ -77,7 +71,7 @@ def deterministic_correctness(prompt: str, output: str) -> dict[str, Any]:
     p, o = prompt.lower(), output.lower()
     checks: list[tuple[str, bool]] = []
     if "parameterized" in p or "sql" in p:
-        checks.append(("parameterized_sql", "?" in output or "%s" in output or "execute(" in o and ("," in output)))
+        checks.append(("parameterized_sql", "?" in output or "%s" in output or ("execute(" in o and "," in output)))
     if "divide" in p or "zero" in p:
         checks.append(("zero_guard", "zero" in o or "== 0" in output or "zerodivision" in o))
     if "path" in p and ("traversal" in p or "safe" in p):
@@ -85,8 +79,7 @@ def deterministic_correctness(prompt: str, output: str) -> dict[str, Any]:
     if not checks:
         checks.append(("nonempty_code", len(output.strip()) >= 20))
     passed = sum(1 for _, ok in checks if ok)
-    score = round(100 * passed / len(checks), 2)
-    return {"score": score, "checks": [{"name": n, "passed": ok} for n, ok in checks]}
+    return {"score": round(100 * passed / len(checks), 2), "checks": [{"name": n, "passed": ok} for n, ok in checks]}
 
 
 def heuristic_subjective_score(output: str) -> dict[str, float]:
@@ -94,6 +87,22 @@ def heuristic_subjective_score(output: str) -> dict[str, float]:
     helpfulness = min(100.0, 55 + min(length, 900) / 20)
     reliability = 92.0 if "```" in output or "def " in output or "class " in output else 82.0
     return {"helpfulness": round(helpfulness, 2), "reliability": reliability}
+
+
+def llm_judge(prompt: str, output: str, model: str = DEFAULT_JUDGE) -> dict[str, Any]:
+    judge_prompt = f"""You are an evaluation judge. Score only subjective qualities. Do not override deterministic security or correctness checks.
+Return compact JSON with numeric fields helpfulness and clarity from 0 to 100 plus a short rationale.
+USER PROMPT:\n{prompt}\n\nMODEL OUTPUT:\n{output}\n"""
+    run = run_hf_model(model, judge_prompt, max_new_tokens=160)
+    raw = run.output.strip()
+    match = re.search(r"\{.*\}", raw, re.S)
+    if not match:
+        return {"enabled": True, "model": model, "parseError": True, "raw": raw[:800]}
+    try:
+        data = json.loads(match.group(0))
+        return {"enabled": True, "model": model, "parseError": False, "result": data, "latencyMs": run.latency_ms}
+    except json.JSONDecodeError:
+        return {"enabled": True, "model": model, "parseError": True, "raw": raw[:800]}
 
 
 def normalized_evaluation(run: ModelRun) -> dict[str, Any]:
@@ -119,23 +128,25 @@ def normalized_evaluation(run: ModelRun) -> dict[str, Any]:
     }
 
 
-def compare_live_models(prompt: str, baseline_model: str = DEFAULT_BASELINE, candidate_model: str = DEFAULT_CANDIDATE) -> dict[str, Any]:
+def compare_live_models(prompt: str, baseline_model: str = DEFAULT_BASELINE, candidate_model: str = DEFAULT_CANDIDATE, use_judge: bool = False) -> dict[str, Any]:
     baseline_run = run_hf_model(baseline_model, prompt)
     candidate_run = run_hf_model(candidate_model, prompt)
     baseline_eval = normalized_evaluation(baseline_run)
     candidate_eval = normalized_evaluation(candidate_run)
-    return {
+    result = {
         "schemaVersion": "1.0.0",
         "evaluationMode": "live-huggingface",
         "evaluatedAt": utc_now(),
         "baseline": {**baseline_eval, "output": baseline_run.output},
         "candidate": {**candidate_eval, "output": candidate_run.output},
     }
+    if use_judge:
+        result["judge"] = {"baseline": llm_judge(prompt, baseline_run.output), "candidate": llm_judge(prompt, candidate_run.output)}
+    return result
 
 
 def ingest_trace_jsonl(text: str) -> dict[str, Any]:
-    traces = []
-    errors = []
+    traces, errors = [], []
     for idx, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
             continue
@@ -151,12 +162,10 @@ def ingest_trace_jsonl(text: str) -> dict[str, Any]:
     latencies = [float(x["latency_ms"]) for x in traces]
     failed = [x for x in traces if str(x["status"]).lower() not in {"ok", "success", "pass"}]
     return {
-        "accepted": len(traces),
-        "rejected": len(errors),
+        "accepted": len(traces), "rejected": len(errors),
         "errorRate": round(len(failed) / len(traces) * 100, 2) if traces else 0.0,
         "averageLatencyMs": round(sum(latencies) / len(latencies), 2) if latencies else 0.0,
-        "errors": errors,
-        "traces": traces,
+        "errors": errors, "traces": traces,
     }
 
 
@@ -169,11 +178,4 @@ def promotion_record(model: str, decision: str, evidence_id: str, current_state:
     }
     if current_state not in allowed or decision not in {"SHIP", "INVESTIGATE", "HOLD"}:
         raise ValueError("Unsupported state or decision.")
-    return {
-        "model": model,
-        "previousState": current_state,
-        "decision": decision,
-        "state": allowed[current_state][decision],
-        "evidenceId": evidence_id,
-        "recordedAt": utc_now(),
-    }
+    return {"model": model, "previousState": current_state, "decision": decision, "state": allowed[current_state][decision], "evidenceId": evidence_id, "recordedAt": utc_now()}
