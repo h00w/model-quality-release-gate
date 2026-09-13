@@ -1,0 +1,69 @@
+name: Model Release Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'release/**'
+      - 'benchmarks/**'
+      - 'scripts/release-gate.mjs'
+      - '.github/workflows/release-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'release/**'
+      - 'benchmarks/**'
+      - 'scripts/release-gate.mjs'
+      - '.github/workflows/release-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    name: Enforce model release policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate machine-readable release evidence
+        run: node scripts/release-gate.mjs release/candidate-release.json artifacts/release-gate
+
+      - name: Verify evidence checksums
+        working-directory: artifacts/release-gate
+        run: sha256sum --check checksums.sha256
+
+      - name: Publish decision to workflow summary
+        shell: bash
+        run: |
+          cat artifacts/release-gate/summary.md >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Evidence identity: \`$(jq -r .immutableIdentity artifacts/release-gate/manifest.json)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload tamper-evident release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-release-evidence-${{ github.run_id }}
+          path: artifacts/release-gate/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce HOLD as a failing status check
+        shell: bash
+        run: |
+          decision=$(jq -r .decision artifacts/release-gate/decision.json)
+          echo "Release decision: $decision"
+          if [ "$decision" = "HOLD" ]; then
+            echo "Candidate is blocked by release policy."
+            exit 42
+          fi
+          if [ "$decision" = "INVESTIGATE" ]; then
+            echo "Candidate requires engineering review before production promotion."
+          fi
