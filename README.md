@@ -225,7 +225,7 @@ It complements — rather than replaces — post-training methods such as SFT, p
 | Hugging Face Space | Post-Training Lab + live evaluation + traces + promotion | https://huggingface.co/spaces/h0000w/model-quality-release-gate |
 | Hugging Face dataset | Versioned evaluation benchmark/evidence | https://huggingface.co/datasets/h0000w/model-quality-release-gate |
 | Hugging Face methodology card | Evaluation/release methodology | https://huggingface.co/h0000w/model-quality-release-gate |
-| Portfolio case study | Recruiter-facing research-engineering narrative | https://hendarmawan.se/projects/model-quality-release-gate/ |
+| Portfolio case study | Research-engineering narrative | https://hendarmawan.se/projects/model-quality-release-gate/ |
 | Agentic AI Academy | Evaluation/release-control cross-link | https://hendarmawan.se/agentic-ai/ |
 
 ## What the project does not pretend to be
