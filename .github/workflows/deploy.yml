@@ -33,8 +33,11 @@ jobs:
       - name: Install Phase 4 Python dependencies
         run: pip install 'huggingface_hub>=0.35' 'gradio>=5.49,<6' 'pandas>=2.2'
 
-      - name: Run UI release-policy and Phase 2 tests
+      - name: Run UI, release-policy and post-training tests
         run: npm test
+
+      - name: Validate versioned post-training experiment artifact
+        run: node -e "const a=JSON.parse(require('fs').readFileSync('experiments/post-training/exp-sft-001.json','utf8')); if(a.artifactType!=='post-training-experiment'||a.decision!=='INVESTIGATE') process.exit(1); console.log(a.experiment.id,a.decision)"
 
       - name: Run Phase 3 machine-readable gate tests
         run: node --test scripts/release-gate.node-test.mjs
