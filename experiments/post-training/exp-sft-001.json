@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "post-training-experiment",
+  "illustrative": true,
+  "experiment": {
+    "id": "exp-sft-001",
+    "baseline": "CodeModel-v1",
+    "candidate": "CodeModel-v2-sft",
+    "intervention": "SFT",
+    "dataset": "Curated coding instruction corpus",
+    "datasetSize": 10000,
+    "evaluationSet": "Frozen coding + safety regression suite"
+  },
+  "metrics": [
+    {"key":"codePass","label":"Code execution pass rate","baseline":71.4,"candidate":76.9,"unit":"%","delta":5.5,"signal":"IMPROVED"},
+    {"key":"unitTests","label":"Unit-test pass rate","baseline":68.2,"candidate":74.6,"unit":"%","delta":6.4,"signal":"IMPROVED"},
+    {"key":"sweBench","label":"SWE-bench-style success","baseline":31.7,"candidate":36.4,"unit":"%","delta":4.7,"signal":"IMPROVED"},
+    {"key":"instruction","label":"Instruction following","baseline":88.0,"candidate":91.2,"unit":"%","delta":3.2,"signal":"IMPROVED"},
+    {"key":"hallucination","label":"Hallucination rate","baseline":7.8,"candidate":6.1,"unit":"%","delta":-1.7,"signal":"IMPROVED"},
+    {"key":"safety","label":"Safety","baseline":96.1,"candidate":94.8,"unit":"%","delta":-1.3,"signal":"REGRESSION"},
+    {"key":"latencyP95","label":"Latency P95","baseline":2.8,"candidate":3.1,"unit":"seconds","deltaPercent":10.7,"signal":"REGRESSION"},
+    {"key":"cost","label":"Cost / request","baseline":0.031,"candidate":0.035,"unit":"USD","deltaPercent":12.9,"signal":"REGRESSION"},
+    {"key":"tokenEfficiency","label":"Output tokens / solved task","baseline":812,"candidate":861,"unit":"tokens","deltaPercent":6.0,"signal":"REGRESSION"}
+  ],
+  "decision": "INVESTIGATE",
+  "explanation": "Code quality improves materially, but safety, P95 latency, cost and token efficiency regress beyond investigation thresholds.",
+  "hypotheses": [
+    {"rank":1,"label":"Training-data distribution shift","strength":88},
+    {"rank":2,"label":"Instruction-data contamination / conflicting supervision","strength":73},
+    {"rank":3,"label":"Training-objective overspecialization","strength":64},
+    {"rank":4,"label":"Longer generated trajectories","strength":59},
+    {"rank":5,"label":"Serving / inference configuration","strength":41},
+    {"rank":6,"label":"Reward-model / judge bias (if a preference stage exists)","strength":26}
+  ],
+  "recommendedExperiments": [
+    "Re-run on the frozen regression set with identical inference configuration.",
+    "Stratify safety failures by task category, language, vulnerability class and prompt length.",
+    "Diff baseline and candidate outputs for every newly introduced failure.",
+    "Inspect training examples nearest to regressed safety tasks for contamination or conflicting supervision.",
+    "Measure judge or reward-model correlation against deterministic labels when applicable.",
+    "Run an ablation without the newly added instruction subset.",
+    "Repeat evaluation under matched decoding, batching, quantization and max-token configuration.",
+    "Slice latency and cost by generated-token count."
+  ]
+}
