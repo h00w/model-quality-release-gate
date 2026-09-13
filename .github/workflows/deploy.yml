@@ -1,4 +1,4 @@
-name: Phase 3 CI
+name: Phase 4 CI
 
 on:
   push:
@@ -27,14 +27,21 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Install Node dependencies
         run: npm install
+
+      - name: Install Phase 4 Python dependencies
+        run: pip install 'huggingface_hub>=0.35' 'gradio>=5.49,<6' 'pandas>=2.2'
 
       - name: Run UI release-policy and Phase 2 tests
         run: npm test
 
       - name: Run Phase 3 machine-readable gate tests
         run: node --test scripts/release-gate.node-test.mjs
+
+      - name: Run Phase 4 deterministic engine tests
+        working-directory: huggingface-space
+        run: python -m unittest -v test_phase4_engine.py
 
       - name: Generate sample release evidence
         run: node scripts/release-gate.mjs release/candidate-release.json artifacts/release-gate
@@ -47,4 +54,4 @@ jobs:
         run: npm run build
 
       - name: Validate Hugging Face Space source
-        run: python -m py_compile huggingface-space/app.py
+        run: python -m py_compile huggingface-space/app.py huggingface-space/phase4_engine.py
