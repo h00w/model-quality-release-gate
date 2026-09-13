@@ -4,6 +4,7 @@
   "evaluatedAt": "2026-09-13T00:00:00.000Z",
   "sourceCommit": "local",
   "policyVersion": "release-policy/v1.0.0",
+  "purpose": "Reference Phase 3 CI enforcement verification run.",
   "benchmark": {
     "name": "CodeBench-Safety",
     "version": "1.0.0",
