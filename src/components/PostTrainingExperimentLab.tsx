@@ -1,5 +1,6 @@
 import { Download, FlaskConical, Microscope, ShieldAlert } from 'lucide-react';
 import { assessExperiment, experimentArtifact, illustrativeExperiment, investigationHypotheses, recommendedExperiments } from '../lib/postTraining';
+import '../postTraining.css';
 
 function formatValue(value:number, unit:string){
   if(unit==='usd') return `$${value.toFixed(3)}`;
@@ -23,7 +24,7 @@ export default function PostTrainingExperimentLab(){
   const result=assessExperiment(illustrativeExperiment);
   const hypotheses=investigationHypotheses(result);
   return <section id="post-training" className="card postTrainingLab">
-    <div className="sectionHead postTrainingHead"><div><span className="eyebrow">POST-TRAINING EXPERIMENT LAB · RESEARCH ENGINEERING</span><h2>Did the training intervention actually make the model better?</h2><p>Connect post-training changes to release evidence, then investigate *why* an apparently stronger model may still be unsafe or uneconomical to ship.</p></div><button className="textBtn" onClick={downloadArtifact}><Download size={16}/> Export experiment JSON</button></div>
+    <div className="sectionHead postTrainingHead"><div><span className="eyebrow">POST-TRAINING EXPERIMENT LAB · RESEARCH ENGINEERING</span><h2>Did the training intervention actually make the model better?</h2><p>Connect post-training changes to release evidence, then investigate why an apparently stronger model may still be unsafe or uneconomical to ship.</p></div><button className="textBtn" onClick={downloadArtifact}><Download size={16}/> Export experiment JSON</button></div>
 
     <div className="experimentMeta">
       <div><span>Baseline</span><strong>{illustrativeExperiment.baseline}</strong></div>
