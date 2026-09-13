@@ -16,10 +16,10 @@ The system turns those trade-offs into reproducible evidence and an explainable 
 
 ## Phase status
 
-**Phase 1 — Essential release gate: COMPLETE**  
-**Phase 2 — Interactive evaluation & release simulation: COMPLETE**  
-**Phase 3 — Enforceable release engineering: COMPLETE**  
-**Phase 4 — Production evaluation & model lifecycle: COMPLETE**  
+**Phase 1 : Essential release gate: COMPLETE**  
+**Phase 2 : Interactive evaluation & release simulation: COMPLETE**  
+**Phase 3 : Enforceable release engineering: COMPLETE**  
+**Phase 4 : Production evaluation & model lifecycle: COMPLETE**  
 **Research layer — Post-Training Experiment Lab: COMPLETE**
 
 ## Post-Training Experiment Lab
