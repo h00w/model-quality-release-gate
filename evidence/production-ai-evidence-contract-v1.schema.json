@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/h00w/model-quality-release-gate/main/evidence/production-ai-evidence-contract-v1.schema.json",
+  "title": "Production AI Evidence Contract v1",
+  "type": "object",
+  "required": ["contractVersion", "evidenceId", "createdAt", "subject", "environment", "inputs", "benchmark", "policy", "evaluation", "approvals", "decision", "provenance", "artifacts"],
+  "properties": {
+    "contractVersion": {"const": "1.0.0"},
+    "evidenceId": {"type": "string"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "subject": {
+      "type": "object",
+      "required": ["name", "type", "repository", "gitCommit"],
+      "properties": {
+        "name": {"type": "string"},
+        "type": {"type": "string", "enum": ["agent_system", "model_release", "human_ai_assurance", "workflow_system", "edge_ai_release", "repository_release"]},
+        "repository": {"type": "string"},
+        "gitCommit": {"type": "string"},
+        "gitBranch": {"type": ["string", "null"]},
+        "version": {"type": ["string", "null"]},
+        "dirty": {"type": "boolean"}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["os", "architecture", "python", "dependencyFiles"],
+      "properties": {
+        "os": {"type": "string"},
+        "architecture": {"type": "string"},
+        "python": {"type": "string"},
+        "node": {"type": ["string", "null"]},
+        "containerDigest": {"type": ["string", "null"]},
+        "dependencyFiles": {"type": "array", "items": {"$ref": "#/$defs/fileDigest"}}
+      }
+    },
+    "inputs": {"type": "array", "items": {"$ref": "#/$defs/fileDigest"}},
+    "benchmark": {
+      "type": "object",
+      "required": ["files"],
+      "properties": {
+        "name": {"type": ["string", "null"]},
+        "version": {"type": ["string", "null"]},
+        "files": {"type": "array", "items": {"$ref": "#/$defs/fileDigest"}}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["files"],
+      "properties": {
+        "name": {"type": ["string", "null"]},
+        "version": {"type": ["string", "null"]},
+        "files": {"type": "array", "items": {"$ref": "#/$defs/fileDigest"}}
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "required": ["verificationCommand", "exitCode", "status", "durationSeconds", "stdoutArtifact", "stderrArtifact"],
+      "properties": {
+        "verificationCommand": {"type": "string"},
+        "exitCode": {"type": "integer"},
+        "status": {"enum": ["PASS", "FAIL"]},
+        "durationSeconds": {"type": "number", "minimum": 0},
+        "stdoutArtifact": {"type": "string"},
+        "stderrArtifact": {"type": "string"},
+        "metrics": {"type": "object"}
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "required": ["required", "records"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "records": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": ["reproductionStatus", "releaseState", "reason"],
+      "properties": {
+        "reproductionStatus": {"enum": ["PASS", "FAIL"]},
+        "releaseState": {"type": ["string", "null"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["builder", "invocation", "source"],
+      "properties": {
+        "builder": {"type": "string"},
+        "invocation": {"type": "string"},
+        "source": {
+          "type": "object",
+          "required": ["repository", "gitCommit"],
+          "properties": {
+            "repository": {"type": "string"},
+            "gitCommit": {"type": "string"}
+          }
+        }
+      }
+    },
+    "artifacts": {"type": "array", "items": {"$ref": "#/$defs/fileDigest"}},
+    "extensions": {"type": "object"}
+  },
+  "$defs": {
+    "fileDigest": {
+      "type": "object",
+      "required": ["path", "sha256", "sizeBytes"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string"},
+        "sizeBytes": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}
