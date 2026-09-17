@@ -1,0 +1,17 @@
+{
+  "name": "AI Model Release Control Center",
+  "subject_type": "model_release",
+  "repository": "https://github.com/h00w/model-quality-release-gate",
+  "version": "1.0.0",
+  "schema_sha256": "4606849e4a5d6e2919cffd246f8378316012676c5a503331c29bc9fdb98a0043",
+  "verification_command": "npm test && npm run build && node scripts/release-gate.mjs release/candidate-release.json artifacts/release-gate && (cd artifacts/release-gate && sha256sum --check checksums.sha256)",
+  "dependency_patterns": ["package.json", "package-lock.json"],
+  "input_patterns": ["release/candidate-release.json", "registry/**/*.json", "production-traces/**/*.json", "production-traces/**/*.jsonl"],
+  "benchmark_name": "CodeBench-Safety",
+  "benchmark_version": "1.0.0",
+  "benchmark_patterns": ["benchmarks/**/*", "huggingface-dataset/versions/**/*"],
+  "policy_name": "Model Release Gate",
+  "policy_version": "1",
+  "policy_patterns": ["release/*.json", "scripts/release-gate.mjs"],
+  "approvals_required": false
+}
