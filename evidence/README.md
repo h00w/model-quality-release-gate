@@ -18,9 +18,7 @@ Canonical schema:
 
 `evidence/production-ai-evidence-contract-v1.schema.json`
 
-Schema SHA-256:
-
-`4606849e4a5d6e2919cffd246f8378316012676c5a503331c29bc9fdb98a0043`
+The reproduction tool calculates the SHA-256 of the **local schema bytes at runtime** and records it in `extensions.schemaSha256`. This prevents documentation from becoming the authority for a stale schema digest.
 
 ## Important semantic boundary
 
