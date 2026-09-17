@@ -1,0 +1,45 @@
+{
+  "project": {
+    "name": "AI Model Release Control Center",
+    "repository_name": "h00w/model-quality-release-gate",
+    "repository_url": "https://github.com/h00w/model-quality-release-gate",
+    "subject_type": "model-release-system",
+    "version": "1.0.0"
+  },
+  "inputs": [
+    {"path": "release", "kind": "release-candidate-and-policy"},
+    {"path": "scripts/release-gate.mjs", "kind": "release-gate"},
+    {"path": "huggingface-space/phase4_engine.py", "kind": "evaluation-engine"},
+    {"path": "huggingface-dataset", "kind": "versioned-benchmark"},
+    {"path": "package.json", "kind": "dependency-manifest"}
+  ],
+  "steps": [
+    {
+      "name": "frontend-and-release-policy-tests",
+      "command": ["npm", "test"],
+      "cwd": "."
+    },
+    {
+      "name": "node-release-gate-contract-tests",
+      "command": ["node", "--test", "scripts/release-gate.node-test.mjs"],
+      "cwd": "."
+    },
+    {
+      "name": "phase4-engine-tests",
+      "command": ["{python}", "-m", "unittest", "-v", "test_phase4_engine.py"],
+      "cwd": "huggingface-space"
+    },
+    {
+      "name": "production-build",
+      "command": ["npm", "run", "build"],
+      "cwd": "."
+    }
+  ],
+  "domain_decision": null,
+  "domain_decision_source": "release-policy",
+  "notes": [
+    "The reproduction run is offline with respect to live model providers; HF_TOKEN is not required.",
+    "Illustrative post-training metrics remain illustrative and are not converted into benchmark claims by this contract.",
+    "The project release gate retains separate SHIP / INVESTIGATE / HOLD authority."
+  ]
+}
