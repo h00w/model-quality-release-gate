@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/h00w/model-quality-release-gate/main/evidence/production-ai-evidence-contract-v1.schema.json",
+  "title": "Production AI Evidence Contract v1",
+  "description": "A cross-project evidence envelope for reproducible Production AI evaluation and release engineering. It binds repository identity, subject identity, environment, inputs, executed verification steps, artifacts and the resulting reproduction decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "generated_at",
+    "repository",
+    "subject",
+    "environment",
+    "inputs",
+    "execution",
+    "decision",
+    "artifacts"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "1.0.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "contract_source": {
+      "type": "string",
+      "format": "uri"
+    },
+    "schema_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "url", "git_commit", "dirty"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "format": "uri"},
+        "git_commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "branch": {"type": ["string", "null"]},
+        "dirty": {"type": "boolean"}
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "version"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "type": {
+          "enum": [
+            "agentic-system",
+            "workflow-system",
+            "human-centered-ai-system",
+            "model-release-system",
+            "edge-ai-release-system"
+          ]
+        },
+        "version": {"type": "string", "minLength": 1},
+        "candidate_id": {"type": ["string", "null"]}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["os", "architecture", "python", "tools"],
+      "properties": {
+        "os": {"type": "string"},
+        "architecture": {"type": "string"},
+        "python": {"type": "string"},
+        "tools": {
+          "type": "object",
+          "additionalProperties": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "kind", "sha256"],
+        "properties": {
+          "path": {"type": "string"},
+          "kind": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started_at", "finished_at", "steps"],
+      "properties": {
+        "started_at": {"type": "string", "format": "date-time"},
+        "finished_at": {"type": "string", "format": "date-time"},
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "command", "cwd", "exit_code", "duration_seconds", "passed", "log"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "command": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+              "cwd": {"type": "string"},
+              "exit_code": {"type": "integer"},
+              "duration_seconds": {"type": "number", "minimum": 0},
+              "passed": {"type": "boolean"},
+              "log": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "rationale"],
+      "properties": {
+        "status": {"enum": ["REPRODUCED", "PARTIAL", "FAILED"]},
+        "rationale": {"type": "string", "minLength": 1},
+        "domain_decision": {"type": ["string", "null"]},
+        "domain_decision_source": {"type": ["string", "null"]}
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "media_type"],
+        "properties": {
+          "path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "media_type": {"type": "string"}
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}
