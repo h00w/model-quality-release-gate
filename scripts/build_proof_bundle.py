@@ -9,9 +9,8 @@ import os
 import pathlib
 import re
 import tarfile
-from datetime import UTC, datetime
-
 import tomllib
+from datetime import UTC, datetime
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "evidence" / "out" / "current"
