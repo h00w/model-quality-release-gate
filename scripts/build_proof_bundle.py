@@ -9,8 +9,9 @@ import os
 import pathlib
 import re
 import tarfile
+from datetime import UTC, datetime
+
 import tomllib
-from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "evidence" / "out" / "current"
@@ -26,7 +27,7 @@ def sha256(path: pathlib.Path) -> str:
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def dependency_records() -> list[dict]:
@@ -54,7 +55,7 @@ def dependency_records() -> list[dict]:
             continue
         for raw in req.read_text(encoding="utf-8", errors="replace").splitlines():
             line = raw.strip()
-            if not line or line.startswith("#") or line.startswith("-"):
+            if not line or line.startswith(("#", "-")):
                 continue
             match = re.match(r"^([A-Za-z0-9_.-]+)\s*(==|~=|>=|<=|>|<)?\s*([^;\s]+)?", line)
             if match:
@@ -192,19 +193,21 @@ def file_entry(path: pathlib.Path, role: str) -> dict:
 def deterministic_tar(paths: list[pathlib.Path]) -> None:
     if BUNDLE.exists():
         BUNDLE.unlink()
-    with BUNDLE.open("wb") as raw:
-        with gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as gz:
-            with tarfile.open(fileobj=gz, mode="w") as tar:
-                for path in sorted(paths, key=lambda p: str(p.relative_to(ROOT))):
-                    arcname = str(path.relative_to(ROOT))
-                    info = tar.gettarinfo(str(path), arcname)
-                    info.mtime = 0
-                    info.uid = 0
-                    info.gid = 0
-                    info.uname = ""
-                    info.gname = ""
-                    with path.open("rb") as f:
-                        tar.addfile(info, f)
+    with (
+        BUNDLE.open("wb") as raw,
+        gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as gz,
+        tarfile.open(fileobj=gz, mode="w") as tar,
+    ):
+        for path in sorted(paths, key=lambda p: str(p.relative_to(ROOT))):
+            arcname = str(path.relative_to(ROOT))
+            info = tar.gettarinfo(str(path), arcname)
+            info.mtime = 0
+            info.uid = 0
+            info.gid = 0
+            info.uname = ""
+            info.gname = ""
+            with path.open("rb") as f:
+                tar.addfile(info, f)
 
 
 def main() -> int:
