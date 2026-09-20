@@ -8,25 +8,59 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 jobs:
   proof:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Install
         run: npm install --no-package-lock
-      - name: Assess five-level proof
-        run: make proof
-      - name: Upload proof bundle
+
+      - name: Build portable proof bundle
+        run: make proof-package
+
+      - name: Verify internal proof-bundle integrity
+        run: make proof-verify
+
+      - name: Attest proof bundle with SLSA provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest@v4
+        with:
+          subject-path: evidence/out/current/production-ai-proof-bundle.tar.gz
+
+      - name: Attest proof bundle SBOM
+        if: github.event_name != 'pull_request'
+        uses: actions/attest@v4
+        with:
+          subject-path: evidence/out/current/production-ai-proof-bundle.tar.gz
+          sbom-path: evidence/out/current/sbom.spdx.json
+
+      - name: Attest Production AI proof manifest
+        if: github.event_name != 'pull_request'
+        uses: actions/attest@v4
+        with:
+          subject-path: evidence/out/current/production-ai-proof-bundle.tar.gz
+          predicate-type: https://hendarmawan.se/attestations/production-ai-proof-manifest/v1
+          predicate-path: evidence/out/current/proof-manifest.json
+
+      - name: Upload portable proof artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: production-ai-proof
           path: evidence/out/current/
+          if-no-files-found: error
+          retention-days: 90

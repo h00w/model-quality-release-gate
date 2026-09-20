@@ -84,3 +84,25 @@ sha256sum --check evidence/out/current/checksums.sha256 --ignore-missing
 ```
 
 Record `evidence.json` and `proof.json` together with the exact commit used.
+
+
+## Portable proof artifact and signed provenance
+
+Step 3 packages the proof state into a portable artifact:
+
+```bash
+make proof-package
+make proof-verify
+```
+
+The bundle contains the Evidence Contract, `proof.json`, proof model, schemas, SHA-256-linked `proof-manifest.json`, direct-dependency SPDX SBOM, provenance-linkage metadata, and the human summary.
+
+On trusted GitHub Actions runs from this repository, the completed `production-ai-proof-bundle.tar.gz` receives three keyless GitHub artifact attestations: SLSA build provenance, an SBOM attestation, and a custom Production AI proof-manifest predicate.
+
+Verify the external signature with:
+
+```bash
+gh attestation verify --owner h00w evidence/out/current/production-ai-proof-bundle.tar.gz
+```
+
+See [PROVENANCE.md](PROVENANCE.md) for the trust and claim boundaries.

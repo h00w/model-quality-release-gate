@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/h00w/model-quality-release-gate/main/evidence/production-ai-proof-manifest-v1.schema.json",
+  "title": "Production AI Proof Manifest v1",
+  "type": "object",
+  "required": ["schemaVersion","artifactType","subject","proof","ciIdentity","files","linkage","attestation"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "artifactType": {"const": "production-ai-proof-bundle"},
+    "subject": {
+      "type": "object",
+      "required": ["repository","commit","ref"],
+      "properties": {
+        "repository": {"type":"string"},
+        "commit": {"type":"string"},
+        "ref": {"type":["string","null"]}
+      }
+    },
+    "proof": {
+      "type":"object",
+      "required":["modelVersion","achievedLevel","achievedLabel","configuredCeiling"],
+      "properties":{
+        "modelVersion":{"type":"string"},
+        "achievedLevel":{"type":"integer","minimum":0,"maximum":5},
+        "achievedLabel":{"type":"string"},
+        "configuredCeiling":{"type":["integer","null"]}
+      }
+    },
+    "ciIdentity":{"type":"object"},
+    "files":{
+      "type":"array",
+      "items":{
+        "type":"object",
+        "required":["path","sha256","bytes","role"],
+        "properties":{
+          "path":{"type":"string"},
+          "sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+          "bytes":{"type":"integer","minimum":0},
+          "role":{"type":"string"}
+        }
+      }
+    },
+    "linkage":{"type":"object"},
+    "attestation":{"type":"object"}
+  }
+}
