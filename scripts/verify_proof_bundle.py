@@ -20,6 +20,17 @@ def sha256(path: pathlib.Path) -> str:
     return h.hexdigest()
 
 
+def safe_extract(tar: tarfile.TarFile, target: pathlib.Path) -> None:
+    target_resolved = target.resolve()
+    for member in tar.getmembers():
+        if member.issym() or member.islnk():
+            raise ValueError(f"links_not_allowed:{member.name}")
+        destination = (target / member.name).resolve()
+        if destination != target_resolved and target_resolved not in destination.parents:
+            raise ValueError(f"path_traversal:{member.name}")
+    tar.extractall(target)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -34,7 +45,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         target = pathlib.Path(tmp)
         with tarfile.open(bundle, "r:gz") as tar:
-            tar.extractall(target)
+            safe_extract(tar, target)
 
         manifest_path = target / "evidence" / "out" / "current" / "proof-manifest.json"
         if not manifest_path.is_file():
