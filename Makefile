@@ -1,4 +1,4 @@
-.PHONY: reproduce reproduce-clean proof proof-offline proof-clean
+.PHONY: reproduce reproduce-clean proof proof-offline proof-clean proof-package proof-verify
 
 PYTHON ?= python
 
@@ -16,3 +16,9 @@ proof-offline: reproduce
 
 proof-clean:
 	rm -rf evidence/out
+
+proof-package: proof
+	$(PYTHON) scripts/build_proof_bundle.py
+
+proof-verify:
+	$(PYTHON) scripts/verify_proof_bundle.py
