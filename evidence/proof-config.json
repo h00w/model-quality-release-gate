@@ -1,0 +1,43 @@
+{
+  "proofModelVersion": "1.0.0",
+  "minimumLevel": 4,
+  "maxLevel": 4,
+  "externalEvidence": [
+    {
+      "kind": "huggingface_space",
+      "url": "https://huggingface.co/api/spaces/h0000w/model-quality-release-gate",
+      "displayUrl": "https://huggingface.co/spaces/h0000w/model-quality-release-gate",
+      "required": true
+    },
+    {
+      "kind": "huggingface_dataset",
+      "url": "https://huggingface.co/api/datasets/h0000w/model-quality-release-gate",
+      "displayUrl": "https://huggingface.co/datasets/h0000w/model-quality-release-gate",
+      "required": true
+    },
+    {
+      "kind": "huggingface_methodology",
+      "url": "https://huggingface.co/api/models/h0000w/model-quality-release-gate",
+      "displayUrl": "https://huggingface.co/h0000w/model-quality-release-gate",
+      "required": true
+    }
+  ],
+  "level4": {
+    "requiredPaths": [
+      "artifacts/release-gate/decision.json",
+      "artifacts/release-gate/manifest.json",
+      "artifacts/release-gate/checksums.sha256"
+    ],
+    "decision": {
+      "path": "artifacts/release-gate/decision.json",
+      "field": "decision",
+      "allowedValues": [
+        "SHIP"
+      ]
+    }
+  },
+  "level5": {
+    "enabled": false,
+    "reason": "No target-production observation window plus rollback/recovery evidence is asserted by this repository."
+  }
+}

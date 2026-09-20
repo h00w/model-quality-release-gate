@@ -59,3 +59,14 @@ Live Hugging Face inference requires `HF_TOKEN` configured in **Space Settings �
 - Space: https://huggingface.co/spaces/h0000w/model-quality-release-gate
 - Portfolio case study: https://hendarmawan.se/projects/model-quality-release-gate/
 - Agentic AI Academy: https://hendarmawan.se/agentic-ai/
+
+
+## Five-level production-AI proof
+
+This project uses the **Production AI Five-Level Proof Model v1**:
+
+`L1 Runnable → L2 Reproducible → L3 Capability-Validated → L4 Production-Candidate → L5 Production-Validated`.
+
+The canonical engineering source computes the level with `make proof` and records the result in a machine-readable `proof.json`. The configured ceiling for this release-control project is **L4**. L5 is not claimed without target-production observation, SLO and recovery evidence.
+
+Canonical specification: https://github.com/h00w/model-quality-release-gate/blob/main/PROOF_MODEL.md

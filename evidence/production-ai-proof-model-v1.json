@@ -1,0 +1,60 @@
+{
+  "proofModelVersion": "1.0.0",
+  "title": "Production AI Five-Level Proof Model",
+  "canonicalRepository": "https://github.com/h00w/model-quality-release-gate",
+  "levels": [
+    {
+      "level": 1,
+      "name": "Runnable",
+      "minimumEvidence": [
+        "configured verification entry point executes",
+        "explicit PASS/FAIL result",
+        "source commit recorded"
+      ]
+    },
+    {
+      "level": 2,
+      "name": "Reproducible",
+      "minimumEvidence": [
+        "Level 1",
+        "clean source state",
+        "Production AI Evidence Contract v1",
+        "dependency/input/benchmark/policy digests",
+        "retained verification logs",
+        "verified SHA-256 manifest"
+      ]
+    },
+    {
+      "level": 3,
+      "name": "Capability-Validated",
+      "minimumEvidence": [
+        "Level 2",
+        "versioned benchmark evidence",
+        "independently inspectable public capability evidence",
+        "external evidence reachability verified"
+      ]
+    },
+    {
+      "level": 4,
+      "name": "Production-Candidate",
+      "minimumEvidence": [
+        "Level 3",
+        "release-candidate evidence package",
+        "deterministic release policy",
+        "machine-readable candidate decision",
+        "project-specific pre-deployment evidence"
+      ]
+    },
+    {
+      "level": 5,
+      "name": "Production-Validated",
+      "minimumEvidence": [
+        "Level 4",
+        "target-environment observation window",
+        "operational telemetry/SLO evidence",
+        "rollback/recovery/incident evidence",
+        "scope-bounded production claim"
+      ]
+    }
+  ]
+}
