@@ -17,7 +17,7 @@ A reviewer should be able to clone the exact commit, install the documented depe
 Install project dependencies first:
 
 ```bash
-npm install
+npm install --no-package-lock
 ```
 
 ## Reproduce
@@ -77,7 +77,7 @@ See [PROOF_MODEL.md](PROOF_MODEL.md) for the five cumulative proof levels.
 git clone https://github.com/h00w/model-quality-release-gate.git
 cd model-quality-release-gate
 git checkout <commit>
-npm install
+npm install --no-package-lock
 make proof
 cat evidence/out/current/proof-summary.md
 sha256sum --check evidence/out/current/checksums.sha256 --ignore-missing
