@@ -35,7 +35,12 @@ def dependency_records() -> list[dict]:
     package_json = ROOT / "package.json"
     if package_json.is_file():
         data = json.loads(package_json.read_text(encoding="utf-8"))
-        for group in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
+        for group in (
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+            "optionalDependencies",
+        ):
             for name, version in (data.get(group) or {}).items():
                 records[f"npm:{name}:{group}"] = {
                     "name": name,
@@ -83,49 +88,52 @@ def dependency_records() -> list[dict]:
 
 def write_sbom(proof: dict) -> pathlib.Path:
     deps = dependency_records()
-    packages = [{
-        "name": proof.get("subject", {}).get("name") or ROOT.name,
-        "SPDXID": "SPDXRef-Package-Root",
-        "versionInfo": proof.get("subject", {}).get("gitCommit") or "unknown",
-        "downloadLocation": proof.get("subject", {}).get("repository") or "NOASSERTION",
-        "filesAnalyzed": False,
-        "licenseConcluded": "NOASSERTION",
-        "licenseDeclared": "NOASSERTION",
-        "copyrightText": "NOASSERTION"
-    }]
-    relationships = []
-    for i, dep in enumerate(deps, start=1):
-        spdx_id = f"SPDXRef-Dependency-{i}"
-        packages.append({
-            "name": dep["name"],
-            "SPDXID": spdx_id,
-            "versionInfo": dep["version"],
-            "downloadLocation": "NOASSERTION",
+    packages = [
+        {
+            "name": proof.get("subject", {}).get("name") or ROOT.name,
+            "SPDXID": "SPDXRef-Package-Root",
+            "versionInfo": proof.get("subject", {}).get("gitCommit") or "unknown",
+            "downloadLocation": proof.get("subject", {}).get("repository") or "NOASSERTION",
             "filesAnalyzed": False,
             "licenseConcluded": "NOASSERTION",
             "licenseDeclared": "NOASSERTION",
             "copyrightText": "NOASSERTION",
-            "comment": f"Direct dependency declaration; ecosystem={dep['ecosystem']}; scope={dep['scope']}"
-        })
-        relationships.append({
-            "spdxElementId": "SPDXRef-Package-Root",
-            "relationshipType": "DEPENDS_ON",
-            "relatedSpdxElement": spdx_id
-        })
+        }
+    ]
+    relationships = []
+    for i, dep in enumerate(deps, start=1):
+        spdx_id = f"SPDXRef-Dependency-{i}"
+        packages.append(
+            {
+                "name": dep["name"],
+                "SPDXID": spdx_id,
+                "versionInfo": dep["version"],
+                "downloadLocation": "NOASSERTION",
+                "filesAnalyzed": False,
+                "licenseConcluded": "NOASSERTION",
+                "licenseDeclared": "NOASSERTION",
+                "copyrightText": "NOASSERTION",
+                "comment": f"Direct dependency declaration; ecosystem={dep['ecosystem']}; scope={dep['scope']}",
+            }
+        )
+        relationships.append(
+            {
+                "spdxElementId": "SPDXRef-Package-Root",
+                "relationshipType": "DEPENDS_ON",
+                "relatedSpdxElement": spdx_id,
+            }
+        )
     doc = {
         "spdxVersion": "SPDX-2.3",
         "dataLicense": "CC0-1.0",
         "SPDXID": "SPDXRef-DOCUMENT",
         "name": f"{ROOT.name}-proof-bundle-sbom",
         "documentNamespace": f"https://github.com/{os.getenv('GITHUB_REPOSITORY', ROOT.name)}/proof/{proof.get('subject', {}).get('gitCommit', 'local')}",
-        "creationInfo": {
-            "created": now_iso(),
-            "creators": ["Tool: scripts/build_proof_bundle.py"]
-        },
+        "creationInfo": {"created": now_iso(), "creators": ["Tool: scripts/build_proof_bundle.py"]},
         "documentDescribes": ["SPDXRef-Package-Root"],
         "packages": packages,
         "relationships": relationships,
-        "comment": "Manifest-derived direct dependency SBOM for the portable proof bundle; not a transitive dependency resolution."
+        "comment": "Manifest-derived direct dependency SBOM for the portable proof bundle; not a transitive dependency resolution.",
     }
     path = OUT / "sbom.spdx.json"
     path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -144,7 +152,7 @@ def write_provenance(proof: dict, evidence: dict, sbom_path: pathlib.Path) -> pa
             "repository": repo,
             "commit": proof.get("subject", {}).get("gitCommit"),
             "ref": os.getenv("GITHUB_REF"),
-            "event": os.getenv("GITHUB_EVENT_NAME")
+            "event": os.getenv("GITHUB_EVENT_NAME"),
         },
         "builder": {
             "system": "github-actions" if os.getenv("GITHUB_ACTIONS") == "true" else "local",
@@ -153,19 +161,19 @@ def write_provenance(proof: dict, evidence: dict, sbom_path: pathlib.Path) -> pa
             "runId": run_id,
             "runAttempt": os.getenv("GITHUB_RUN_ATTEMPT"),
             "runnerEnvironment": os.getenv("RUNNER_ENVIRONMENT"),
-            "runUrl": f"{server}/{repo}/actions/runs/{run_id}" if repo and run_id else None
+            "runUrl": f"{server}/{repo}/actions/runs/{run_id}" if repo and run_id else None,
         },
         "materials": {
             "evidenceSha256": sha256(OUT / "evidence.json"),
             "proofSha256": sha256(OUT / "proof.json"),
             "sbomSha256": sha256(sbom_path),
-            "proofModelSha256": proof.get("proofModelSha256")
+            "proofModelSha256": proof.get("proofModelSha256"),
         },
         "signedProvenance": {
             "expectedMechanism": "GitHub artifact attestation / Sigstore keyless signing",
             "createdByThisFile": False,
-            "note": "This linkage file is unsigned metadata inside the bundle. The CI workflow cryptographically attests the completed bundle as the external signed envelope."
-        }
+            "note": "This linkage file is unsigned metadata inside the bundle. The CI workflow cryptographically attests the completed bundle as the external signed envelope.",
+        },
     }
     path = OUT / "provenance.json"
     path.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -177,7 +185,7 @@ def file_entry(path: pathlib.Path, role: str) -> dict:
         "path": str(path.relative_to(ROOT)),
         "sha256": sha256(path),
         "bytes": path.stat().st_size,
-        "role": role
+        "role": role,
     }
 
 
@@ -223,7 +231,7 @@ def main() -> int:
         (provenance_path, "provenance-linkage"),
         (schema_path, "proof-manifest-schema"),
         (proof_model_path, "proof-model"),
-        (contract_schema, "evidence-contract-schema")
+        (contract_schema, "evidence-contract-schema"),
     ]
     roles = [(p, r) for p, r in roles if p.is_file()]
 
@@ -235,13 +243,13 @@ def main() -> int:
         "subject": {
             "repository": os.getenv("GITHUB_REPOSITORY") or subject.get("repository") or "",
             "commit": subject.get("gitCommit") or os.getenv("GITHUB_SHA") or "",
-            "ref": os.getenv("GITHUB_REF")
+            "ref": os.getenv("GITHUB_REF"),
         },
         "proof": {
             "modelVersion": proof.get("proofModelVersion"),
             "achievedLevel": proof.get("achievedLevel", 0),
             "achievedLabel": proof.get("achievedLabel", "Unproven"),
-            "configuredCeiling": proof.get("configuredCeiling")
+            "configuredCeiling": proof.get("configuredCeiling"),
         },
         "ciIdentity": {
             "provider": "github-actions" if os.getenv("GITHUB_ACTIONS") == "true" else "local",
@@ -252,25 +260,27 @@ def main() -> int:
             "event": os.getenv("GITHUB_EVENT_NAME"),
             "actor": os.getenv("GITHUB_ACTOR"),
             "repositoryId": os.getenv("GITHUB_REPOSITORY_ID"),
-            "repositoryOwnerId": os.getenv("GITHUB_REPOSITORY_OWNER_ID")
+            "repositoryOwnerId": os.getenv("GITHUB_REPOSITORY_OWNER_ID"),
         },
         "files": [file_entry(p, role) for p, role in roles],
         "linkage": {
             "evidenceContract": "evidence/out/current/evidence.json",
             "proofAssessment": "evidence/out/current/proof.json",
             "sbom": "evidence/out/current/sbom.spdx.json",
-            "provenance": "evidence/out/current/provenance.json"
+            "provenance": "evidence/out/current/provenance.json",
         },
         "attestation": {
             "mechanism": "github-artifact-attestation",
             "signature": "external",
             "expectedIssuer": "https://token.actions.githubusercontent.com",
-            "verification": "gh attestation verify --owner h00w evidence/out/current/production-ai-proof-bundle.tar.gz"
-        }
+            "verification": "gh attestation verify --owner h00w evidence/out/current/production-ai-proof-bundle.tar.gz",
+        },
     }
 
     manifest_path = OUT / "proof-manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
     bundle_paths = [p for p, _ in roles] + [manifest_path]
     deterministic_tar(bundle_paths)
@@ -280,9 +290,11 @@ def main() -> int:
         "sha256": sha256(BUNDLE),
         "bytes": BUNDLE.stat().st_size,
         "subjectCommit": manifest["subject"]["commit"],
-        "achievedLevel": manifest["proof"]["achievedLevel"]
+        "achievedLevel": manifest["proof"]["achievedLevel"],
     }
-    (OUT / "bundle-digest.json").write_text(json.dumps(digest_record, indent=2) + "\n", encoding="utf-8")
+    (OUT / "bundle-digest.json").write_text(
+        json.dumps(digest_record, indent=2) + "\n", encoding="utf-8"
+    )
     print(json.dumps(digest_record, sort_keys=True))
     return 0
 
