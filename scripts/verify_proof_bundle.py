@@ -22,7 +22,9 @@ def sha256(path: pathlib.Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("bundle", nargs="?", default="evidence/out/current/production-ai-proof-bundle.tar.gz")
+    parser.add_argument(
+        "bundle", nargs="?", default="evidence/out/current/production-ai-proof-bundle.tar.gz"
+    )
     args = parser.parse_args()
     bundle = pathlib.Path(args.bundle)
     if not bundle.is_absolute():
@@ -53,7 +55,7 @@ def main() -> int:
         "bundleSha256": sha256(bundle),
         "errors": errors,
         "signatureVerification": "not_performed",
-        "next": "Use gh attestation verify --owner h00w <bundle> to verify the external GitHub/Sigstore attestation."
+        "next": "Use gh attestation verify --owner h00w <bundle> to verify the external GitHub/Sigstore attestation.",
     }
     print(json.dumps(result, indent=2))
     return 0 if not errors else 1
