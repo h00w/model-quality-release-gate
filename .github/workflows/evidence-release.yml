@@ -1,0 +1,117 @@
+name: Evidence Release Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Evidence release version, for example 1.0.0"
+        required: true
+        default: "1.0.0"
+        type: string
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  prepare-draft:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[evidence-draft]')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EVIDENCE_VERSION: ${{ inputs.version || '1.0.0' }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: npm install --no-package-lock
+
+      - name: Build and verify proof bundle
+        run: |
+          make proof-package
+          make proof-verify
+          python scripts/negative_tamper_test.py
+
+      - name: Bind bundle to release tag and source commit
+        run: |
+          TAG="evidence-v$EVIDENCE_VERSION"
+          python scripts/create_release_binding.py \
+            --tag "$TAG" \
+            --commit "$GITHUB_SHA"
+
+      - name: Attest release bundle provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: evidence/out/current/production-ai-proof-bundle.tar.gz
+
+      - name: Attest release bundle SBOM
+        uses: actions/attest@v4
+        with:
+          subject-path: evidence/out/current/production-ai-proof-bundle.tar.gz
+          sbom-path: evidence/out/current/sbom.spdx.json
+
+      - name: Attest release proof manifest
+        uses: actions/attest@v4
+        with:
+          subject-path: evidence/out/current/production-ai-proof-bundle.tar.gz
+          predicate-type: https://hendarmawan.se/attestations/production-ai-proof-manifest/v1
+          predicate-path: evidence/out/current/proof-manifest.json
+
+      - name: Attest release binding
+        uses: actions/attest@v4
+        with:
+          subject-path: evidence/out/current/production-ai-proof-bundle.tar.gz
+          predicate-type: https://hendarmawan.se/attestations/production-ai-evidence-release/v1
+          predicate-path: evidence/out/current/release-binding.json
+
+      - name: Create or refresh draft evidence release
+        run: |
+          TAG="evidence-v$EVIDENCE_VERSION"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "Refusing to mutate an already published evidence release: $TAG"
+              exit 1
+            fi
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --draft \
+              --title "Production AI Evidence $TAG" \
+              --notes "Portable, signed Production AI proof bundle. Publish only after repository release immutability is enabled."
+          fi
+
+          gh release upload "$TAG" \
+            evidence/out/current/production-ai-proof-bundle.tar.gz \
+            evidence/out/current/proof-manifest.json \
+            evidence/out/current/sbom.spdx.json \
+            evidence/out/current/provenance.json \
+            evidence/out/current/bundle-digest.json \
+            evidence/out/current/release-binding.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+          gh release view "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json url,tagName,isDraft,targetCommitish
+
+      - name: Retain release preparation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-release-${{ env.EVIDENCE_VERSION }}
+          path: evidence/out/current/
+          if-no-files-found: error
+          retention-days: 90
