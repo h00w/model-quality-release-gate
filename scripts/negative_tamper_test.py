@@ -43,9 +43,7 @@ def main() -> int:
         if result["verified"]:
             raise SystemExit("FAIL: content-tampered proof bundle was accepted.")
 
-        expected = any(
-            error.startswith("sha256_mismatch:") for error in result["errors"]
-        )
+        expected = any(error.startswith("sha256_mismatch:") for error in result["errors"])
         if not expected:
             raise SystemExit(
                 "FAIL: tampered bundle failed, but not because a bound digest changed."
