@@ -2,6 +2,14 @@ name: Portfolio Evidence Verification
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "evidence/portfolio-evidence-index-v1.json"
+      - "scripts/validate_portfolio_evidence_index.py"
+      - "scripts/verify_proof_bundle.py"
+      - "scripts/negative_tamper_test.py"
+      - ".github/workflows/portfolio-evidence-verify.yml"
   schedule:
     - cron: "17 6 * * 1"
 
