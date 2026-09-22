@@ -1,0 +1,76 @@
+name: Portfolio Evidence Verification
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+
+jobs:
+  verify-portfolio:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate evidence index
+        run: python scripts/validate_portfolio_evidence_index.py
+
+      - name: Cross-repository cryptographic verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/portfolio-proof
+
+          jq -c '.projects[]' evidence/portfolio-evidence-index-v1.json | while read -r entry; do
+            repo="$(jq -r '.repository' <<<"$entry")"
+            run_id="$(jq -r '.distribution.workflowRunId' <<<"$entry")"
+            artifact_name="$(jq -r '.bundle.artifactName' <<<"$entry")"
+            expected_digest="$(jq -r '.bundle.sha256' <<<"$entry")"
+            slug="$(tr '/[:upper:]' '-[:lower:]' <<<"$repo" | tr -d '\n')"
+            dest="/tmp/portfolio-proof/$slug"
+
+            echo "::group::Verify $repo"
+            mkdir -p "$dest"
+            gh run download "$run_id" \
+              --repo "$repo" \
+              --name "$artifact_name" \
+              --dir "$dest"
+
+            bundle="$dest/production-ai-proof-bundle.tar.gz"
+            test -f "$bundle"
+
+            actual_digest="$(sha256sum "$bundle" | awk '{print $1}')"
+            test "$actual_digest" = "$expected_digest"
+
+            python scripts/verify_proof_bundle.py "$bundle"
+
+            gh attestation verify "$bundle" -R "$repo"
+            gh attestation verify "$bundle" -R "$repo" \
+              --predicate-type https://spdx.dev/Document/v2.3
+            gh attestation verify "$bundle" -R "$repo" \
+              --predicate-type https://hendarmawan.se/attestations/production-ai-proof-manifest/v1
+
+            count="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "/repos/$repo/attestations/sha256:$expected_digest" \
+              --jq '.attestations | length')"
+            test "$count" -ge 3
+
+            python scripts/negative_tamper_test.py "$bundle"
+
+            cp "$bundle" "$dest/tampered-signed.tar.gz"
+            printf '\nportfolio-signature-tamper\n' >> "$dest/tampered-signed.tar.gz"
+            if gh attestation verify "$dest/tampered-signed.tar.gz" -R "$repo"; then
+              echo "FAIL: signed-artifact tamper was accepted for $repo"
+              exit 1
+            fi
+            echo "PASS: $repo independently verified; tampering rejected"
+            echo "::endgroup::"
+          done

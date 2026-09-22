@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "1.0.0",
+  "portfolio": "Hendarmawan Production AI Evidence Portfolio",
+  "generatedFrom": "Step 3 signed main-branch proof artifacts",
+  "releasePromotionStatus": "draft-release workflows prepared; immutable publication pending repository setting and release publication",
+  "projects": [
+    {
+      "repository": "h00w/model-quality-release-gate",
+      "commit": "29299c6b015a474646ea33b823edfb244cfe82e2",
+      "proof": {
+        "level": 4,
+        "label": "Production-Candidate"
+      },
+      "bundle": {
+        "sha256": "6388e550dcb4159ccfd7b445aedf704c3e3f551e8c17b1d3fdca338d86cd2f6b",
+        "artifactName": "production-ai-proof"
+      },
+      "distribution": {
+        "type": "github-actions-artifact",
+        "workflowRunId": 35527845054,
+        "releaseTag": null,
+        "releaseStatus": "pending"
+      },
+      "attestations": {
+        "provenance": "https://github.com/h00w/model-quality-release-gate/attestations/48782346",
+        "sbom": "https://github.com/h00w/model-quality-release-gate/attestations/48782350",
+        "proofManifest": "https://github.com/h00w/model-quality-release-gate/attestations/48782353"
+      }
+    },
+    {
+      "repository": "h00w/agentic-ai",
+      "commit": "8f034373097b6f792b825241bdc3b993b9e7caea",
+      "proof": {
+        "level": 3,
+        "label": "Capability-Validated"
+      },
+      "bundle": {
+        "sha256": "be557fac2621bbd82dbb5392372b0120390776cb49c6d78031228609e67640e0",
+        "artifactName": "production-ai-proof"
+      },
+      "distribution": {
+        "type": "github-actions-artifact",
+        "workflowRunId": 35527848882,
+        "releaseTag": null,
+        "releaseStatus": "pending"
+      },
+      "attestations": {
+        "provenance": "https://github.com/h00w/agentic-ai/attestations/48782342",
+        "sbom": "https://github.com/h00w/agentic-ai/attestations/48782348",
+        "proofManifest": "https://github.com/h00w/agentic-ai/attestations/48782351"
+      }
+    },
+    {
+      "repository": "h00w/autonomous-revenue-ops",
+      "commit": "310c507ee54ab2250c40d8d056d846e399f37290",
+      "proof": {
+        "level": 3,
+        "label": "Capability-Validated"
+      },
+      "bundle": {
+        "sha256": "1a3edc973eaea6c4f3ae0453bf9420599c8d92f4718314728ae76ab74e9c3aa2",
+        "artifactName": "production-ai-proof"
+      },
+      "distribution": {
+        "type": "github-actions-artifact",
+        "workflowRunId": 35527853351,
+        "releaseTag": null,
+        "releaseStatus": "pending"
+      },
+      "attestations": {
+        "provenance": "https://github.com/h00w/autonomous-revenue-ops/attestations/48782383",
+        "sbom": "https://github.com/h00w/autonomous-revenue-ops/attestations/48782385",
+        "proofManifest": "https://github.com/h00w/autonomous-revenue-ops/attestations/48782387"
+      }
+    },
+    {
+      "repository": "h00w/Human-Intelligence-Assurance-Lab",
+      "commit": "a0645a5ae31cb71dfda530e59ac944d42130a839",
+      "proof": {
+        "level": 3,
+        "label": "Capability-Validated"
+      },
+      "bundle": {
+        "sha256": "c92299ee051f1d7e16111bd4d636a7a34c3fc93b586f88f3ad0ce5ff3047bd78",
+        "artifactName": "production-ai-proof"
+      },
+      "distribution": {
+        "type": "github-actions-artifact",
+        "workflowRunId": 35527870966,
+        "releaseTag": null,
+        "releaseStatus": "pending"
+      },
+      "attestations": {
+        "provenance": "https://github.com/h00w/Human-Intelligence-Assurance-Lab/attestations/48782395",
+        "sbom": "https://github.com/h00w/Human-Intelligence-Assurance-Lab/attestations/48782396",
+        "proofManifest": "https://github.com/h00w/Human-Intelligence-Assurance-Lab/attestations/48782399"
+      }
+    },
+    {
+      "repository": "h00w/secure-edge-ai-governance",
+      "commit": "21e7125a146483b2c5406b54ab69ab3e01db0aa4",
+      "proof": {
+        "level": 3,
+        "label": "Capability-Validated"
+      },
+      "bundle": {
+        "sha256": "0b3aa6c0944e01fef110a0be45b74cbad5f9e07b0b089f4a1a47f3dc9d3c9485",
+        "artifactName": "production-ai-proof"
+      },
+      "distribution": {
+        "type": "github-actions-artifact",
+        "workflowRunId": 35527857600,
+        "releaseTag": null,
+        "releaseStatus": "pending"
+      },
+      "attestations": {
+        "provenance": "https://github.com/h00w/secure-edge-ai-governance/attestations/48782422",
+        "sbom": "https://github.com/h00w/secure-edge-ai-governance/attestations/48782423",
+        "proofManifest": "https://github.com/h00w/secure-edge-ai-governance/attestations/48782426"
+      }
+    }
+  ]
+}

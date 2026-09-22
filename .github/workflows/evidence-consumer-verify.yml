@@ -1,0 +1,81 @@
+name: Evidence Consumer Verification
+
+on:
+  workflow_run:
+    workflows: ["Production AI Proof Model"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Successful Production AI Proof Model run ID to verify"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+
+jobs:
+  verify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.run_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download producer artifact
+        run: |
+          mkdir -p consumer-artifact
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name production-ai-proof \
+            --dir consumer-artifact
+          test -f consumer-artifact/production-ai-proof-bundle.tar.gz
+
+      - name: Verify portable bundle internally
+        run: |
+          python scripts/verify_proof_bundle.py \
+            consumer-artifact/production-ai-proof-bundle.tar.gz
+
+      - name: Verify SLSA provenance attestation
+        run: |
+          gh attestation verify \
+            consumer-artifact/production-ai-proof-bundle.tar.gz \
+            -R "$GITHUB_REPOSITORY"
+
+      - name: Verify SBOM attestation
+        run: |
+          gh attestation verify \
+            consumer-artifact/production-ai-proof-bundle.tar.gz \
+            -R "$GITHUB_REPOSITORY" \
+            --predicate-type https://spdx.dev/Document/v2.3
+
+      - name: Verify Production AI proof-manifest attestation
+        run: |
+          gh attestation verify \
+            consumer-artifact/production-ai-proof-bundle.tar.gz \
+            -R "$GITHUB_REPOSITORY" \
+            --predicate-type https://hendarmawan.se/attestations/production-ai-proof-manifest/v1
+
+      - name: Negative content-tamper test
+        run: |
+          python scripts/negative_tamper_test.py \
+            consumer-artifact/production-ai-proof-bundle.tar.gz
+
+      - name: Negative signature-tamper test
+        run: |
+          cp consumer-artifact/production-ai-proof-bundle.tar.gz /tmp/tampered-proof-bundle.tar.gz
+          printf '\ncryptographic-tamper\n' >> /tmp/tampered-proof-bundle.tar.gz
+          if gh attestation verify /tmp/tampered-proof-bundle.tar.gz -R "$GITHUB_REPOSITORY"; then
+            echo "FAIL: cryptographically tampered bundle was accepted"
+            exit 1
+          fi
+          echo "PASS: cryptographically tampered bundle was rejected"

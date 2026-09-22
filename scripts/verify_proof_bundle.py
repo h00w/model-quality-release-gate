@@ -31,16 +31,7 @@ def safe_extract(tar: tarfile.TarFile, target: pathlib.Path) -> None:
     tar.extractall(target)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "bundle", nargs="?", default="evidence/out/current/production-ai-proof-bundle.tar.gz"
-    )
-    args = parser.parse_args()
-    bundle = pathlib.Path(args.bundle)
-    if not bundle.is_absolute():
-        bundle = ROOT / bundle
-
+def verify_bundle(bundle: pathlib.Path) -> dict:
     errors: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         target = pathlib.Path(tmp)
@@ -61,15 +52,28 @@ def main() -> int:
                 elif path.stat().st_size != item["bytes"]:
                     errors.append(f"size_mismatch:{item['path']}")
 
-    result = {
+    return {
         "verified": not errors,
         "bundleSha256": sha256(bundle),
         "errors": errors,
         "signatureVerification": "not_performed",
-        "next": "Use gh attestation verify --owner h00w <bundle> to verify the external GitHub/Sigstore attestation.",
+        "next": "Use gh attestation verify <bundle> -R OWNER/REPO to verify the external GitHub/Sigstore attestation.",
     }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "bundle", nargs="?", default="evidence/out/current/production-ai-proof-bundle.tar.gz"
+    )
+    args = parser.parse_args()
+    bundle = pathlib.Path(args.bundle)
+    if not bundle.is_absolute():
+        bundle = ROOT / bundle
+
+    result = verify_bundle(bundle)
     print(json.dumps(result, indent=2))
-    return 0 if not errors else 1
+    return 0 if result["verified"] else 1
 
 
 if __name__ == "__main__":
