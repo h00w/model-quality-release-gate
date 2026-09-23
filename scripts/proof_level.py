@@ -175,9 +175,7 @@ def main() -> int:
             deployment_path = ROOT / deployment_evidence_path
             if deployment_path.is_file():
                 try:
-                    deployment_payload = json.loads(
-                        deployment_path.read_text(encoding="utf-8")
-                    )
+                    deployment_payload = json.loads(deployment_path.read_text(encoding="utf-8"))
                     deployment_assessment = assess_deployment_evidence(
                         deployment_payload,
                         expected_commit=evidence.get("subject", {}).get("gitCommit"),
@@ -186,9 +184,7 @@ def main() -> int:
                         ),
                     )
                     deployment_assessment["status"] = (
-                        "QUALIFIED"
-                        if deployment_assessment["qualified"]
-                        else "NOT_QUALIFIED"
+                        "QUALIFIED" if deployment_assessment["qualified"] else "NOT_QUALIFIED"
                     )
                     deployment_assessment["path"] = deployment_evidence_path
                     deployment_assessment["sha256"] = sha256(deployment_path)
@@ -215,9 +211,7 @@ def main() -> int:
         )
     )
     if deployment_assessment.get("errors"):
-        level5_reason += " Evidence errors: " + ", ".join(
-            deployment_assessment["errors"]
-        )
+        level5_reason += " Evidence errors: " + ", ".join(deployment_assessment["errors"])
     levels.append(level_record(5, names[5], level5, level5_reason))
 
     achieved = 0
