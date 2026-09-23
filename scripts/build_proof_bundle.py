@@ -223,6 +223,8 @@ def main() -> int:
     schema_path = ROOT / "evidence" / "production-ai-proof-manifest-v1.schema.json"
     proof_model_path = ROOT / "evidence" / "production-ai-proof-model-v1.json"
     contract_schema = ROOT / "evidence" / "production-ai-evidence-contract-v1.schema.json"
+    deployment_schema = ROOT / "evidence" / "deployment-observation-contract-v1.schema.json"
+    deployment_evidence = ROOT / "evidence" / "deployment-evidence.json"
 
     roles = [
         (evidence_path, "evidence-contract"),
@@ -234,6 +236,8 @@ def main() -> int:
         (schema_path, "proof-manifest-schema"),
         (proof_model_path, "proof-model"),
         (contract_schema, "evidence-contract-schema"),
+        (deployment_schema, "deployment-observation-contract-schema"),
+        (deployment_evidence, "deployment-observation-evidence"),
     ]
     roles = [(p, r) for p, r in roles if p.is_file()]
 
@@ -270,6 +274,9 @@ def main() -> int:
             "proofAssessment": "evidence/out/current/proof.json",
             "sbom": "evidence/out/current/sbom.spdx.json",
             "provenance": "evidence/out/current/provenance.json",
+            "deploymentEvidence": (
+                "evidence/deployment-evidence.json" if deployment_evidence.is_file() else None
+            ),
         },
         "attestation": {
             "mechanism": "github-artifact-attestation",

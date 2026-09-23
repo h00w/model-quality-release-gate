@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/h00w/model-quality-release-gate/main/evidence/deployment-observation-contract-v1.schema.json",
+  "title": "Production AI Deployment Evidence and Observation Contract v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "subject",
+    "deployment",
+    "observation",
+    "rollback",
+    "incidents",
+    "linkage",
+    "boundedClaim"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "subject": {
+      "type": "object",
+      "required": ["repository", "commit", "artifact"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "artifact": {
+          "type": "object",
+          "required": ["name", "version", "sha256"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "version": {"type": "string", "minLength": 1},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "required": ["deploymentId", "environment", "startedAt", "environmentFingerprint"],
+      "properties": {
+        "deploymentId": {"type": "string", "minLength": 1},
+        "environment": {
+          "type": "object",
+          "required": ["id", "class"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "class": {
+              "enum": ["production", "target-operational", "controlled-production"]
+            },
+            "region": {"type": ["string", "null"]},
+            "tenantScope": {"type": ["string", "null"]}
+          }
+        },
+        "startedAt": {"type": "string", "format": "date-time"},
+        "environmentFingerprint": {
+          "type": "object",
+          "required": ["sha256", "components"],
+          "properties": {
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "components": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["name", "identity"],
+                "properties": {
+                  "name": {"type": "string"},
+                  "identity": {"type": "string"},
+                  "sha256": {
+                    "type": ["string", "null"],
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": ["trafficClass", "window", "sampleCount", "telemetry", "slos"],
+      "properties": {
+        "trafficClass": {"const": "operational-real"},
+        "window": {
+          "type": "object",
+          "required": ["start", "end", "durationSeconds"],
+          "properties": {
+            "start": {"type": "string", "format": "date-time"},
+            "end": {"type": "string", "format": "date-time"},
+            "durationSeconds": {"type": "integer", "minimum": 1}
+          }
+        },
+        "sampleCount": {"type": "integer", "minimum": 1},
+        "telemetry": {
+          "type": "object",
+          "required": [
+            "system",
+            "sourceRef",
+            "exportSha256",
+            "collectorVersion",
+            "redactionApplied",
+            "retentionClass"
+          ],
+          "properties": {
+            "system": {"type": "string", "minLength": 1},
+            "sourceRef": {"type": "string", "minLength": 1},
+            "exportSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "querySha256": {
+              "type": ["string", "null"],
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "collectorVersion": {"type": "string", "minLength": 1},
+            "redactionApplied": {"type": "boolean"},
+            "retentionClass": {"type": "string", "minLength": 1}
+          }
+        },
+        "slos": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "metric",
+              "operator",
+              "target",
+              "observed",
+              "unit",
+              "passed",
+              "evidenceSha256"
+            ],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "metric": {"type": "string", "minLength": 1},
+              "operator": {"enum": ["<", "<=", ">", ">=", "=="]},
+              "target": {"type": "number"},
+              "observed": {"type": "number"},
+              "unit": {"type": "string", "minLength": 1},
+              "passed": {"type": "boolean"},
+              "evidenceSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "required": [
+        "demonstrated",
+        "drillId",
+        "startedAt",
+        "completedAt",
+        "recoveryTimeSeconds",
+        "objectiveSeconds",
+        "outcome",
+        "evidenceSha256"
+      ],
+      "properties": {
+        "demonstrated": {"const": true},
+        "drillId": {"type": "string", "minLength": 1},
+        "startedAt": {"type": "string", "format": "date-time"},
+        "completedAt": {"type": "string", "format": "date-time"},
+        "recoveryTimeSeconds": {"type": "number", "minimum": 0},
+        "objectiveSeconds": {"type": "number", "exclusiveMinimum": 0},
+        "outcome": {"const": "PASS"},
+        "evidenceSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "incidents": {
+      "type": "object",
+      "required": ["noneObserved", "records"],
+      "properties": {
+        "noneObserved": {"type": "boolean"},
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "incidentId",
+              "severity",
+              "status",
+              "detectedAt",
+              "recoveredAt",
+              "evidenceSha256"
+            ],
+            "properties": {
+              "incidentId": {"type": "string", "minLength": 1},
+              "severity": {"enum": ["low", "medium", "high", "critical"]},
+              "status": {"enum": ["resolved", "accepted"]},
+              "detectedAt": {"type": "string", "format": "date-time"},
+              "recoveredAt": {"type": "string", "format": "date-time"},
+              "rootCauseStatus": {
+                "enum": ["complete", "in-progress", "not-required"]
+              },
+              "evidenceSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "linkage": {
+      "type": "object",
+      "required": [
+        "l4ProofBundleSha256",
+        "releaseBindingSha256",
+        "sourceCommit",
+        "attestationUrls"
+      ],
+      "properties": {
+        "l4ProofBundleSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "releaseBindingSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "sourceCommit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "attestationUrls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "format": "uri"}
+        }
+      }
+    },
+    "boundedClaim": {
+      "type": "object",
+      "required": [
+        "status",
+        "environmentId",
+        "observationStart",
+        "observationEnd",
+        "scope",
+        "exclusions",
+        "statement",
+        "approvals"
+      ],
+      "properties": {
+        "status": {"enum": ["NOT_PROVEN", "PRODUCTION_VALIDATED"]},
+        "environmentId": {"type": "string", "minLength": 1},
+        "observationStart": {"type": "string", "format": "date-time"},
+        "observationEnd": {"type": "string", "format": "date-time"},
+        "scope": {"type": "string", "minLength": 1},
+        "exclusions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "statement": {"type": "string", "minLength": 1},
+        "approvals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["role", "identity", "approvedAt"],
+            "properties": {
+              "role": {"type": "string", "minLength": 1},
+              "identity": {"type": "string", "minLength": 1},
+              "approvedAt": {"type": "string", "format": "date-time"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

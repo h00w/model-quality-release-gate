@@ -41,3 +41,22 @@ evidence/out/current/
 ```
 
 The canonical machine-readable level definition is `evidence/production-ai-proof-model-v1.json`.
+
+
+## L5 admission contract
+
+**L5 Production-Validated is now governed by [Deployment Evidence & Production Observation Contract v1](DEPLOYMENT_EVIDENCE.md).**
+
+A repository setting `maxLevel: 5` is only declaring an eligible ceiling. The achieved level remains L4 or below until `scripts/proof_level.py` receives a governed `evidence/deployment-evidence.json` for the exact checked-out subject and the contract validator confirms all of the following:
+
+- exact deployment and source/artifact identity;
+- operational environment fingerprint;
+- bounded real-traffic observation window;
+- telemetry provenance and retained evidence digests;
+- all declared blocking SLOs pass;
+- rollback/recovery drill passes its objective;
+- incident state is explicit and closed/accepted where incidents occurred;
+- cryptographic linkage to the L4 proof/release evidence;
+- bounded scope, exclusions and accountable approval.
+
+A missing, synthetic, stale, unbounded or failed observation therefore leaves the project at L4 or below. Cryptographic signing does not override this gate.

@@ -1,7 +1,7 @@
 {
   "proofModelVersion": "1.0.0",
   "minimumLevel": 4,
-  "maxLevel": 4,
+  "maxLevel": 5,
   "externalEvidence": [
     {
       "kind": "huggingface_space",
@@ -37,7 +37,9 @@
     }
   },
   "level5": {
-    "enabled": false,
-    "reason": "No target-production observation window plus rollback/recovery evidence is asserted by this repository."
+    "enabled": true,
+    "deploymentEvidencePath": "evidence/deployment-evidence.json",
+    "minimumObservationSeconds": 86400,
+    "reason": "L5 is eligible only when governed operational evidence for this exact commit is supplied at validation time and satisfies Deployment Evidence & Production Observation Contract v1."
   }
 }
