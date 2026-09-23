@@ -29,6 +29,11 @@ jobs:
       - name: Install
         run: npm install --no-package-lock
 
+      - name: Self-test L5 deployment evidence contract
+        run: |
+          make deployment-contract-selftest
+          make deployment-template-check
+
       - name: Build portable proof bundle
         run: make proof-package
 
