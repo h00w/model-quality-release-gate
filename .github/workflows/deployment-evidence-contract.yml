@@ -1,0 +1,81 @@
+name: Deployment Evidence Contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Self-test L5 contract semantics
+        run: python scripts/deployment_evidence_selftest.py
+
+      - name: Confirm committed example cannot qualify as L5
+        run: |
+          python scripts/validate_deployment_evidence.py \
+            evidence/deployment-evidence.example.json \
+            --minimum-observation-seconds 86400 \
+            --expect-not-qualified
+
+      - name: Validate L5 policy configuration
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path("evidence/proof-config.json").read_text())
+          level5 = config.get("level5", {})
+          enabled = bool(level5.get("enabled"))
+          max_level = int(config.get("maxLevel", 0))
+          minimum = level5.get("minimumObservationSeconds")
+
+          if enabled:
+              assert max_level >= 5, "enabled L5 requires maxLevel >= 5"
+              assert level5.get("deploymentEvidencePath"), "enabled L5 requires deploymentEvidencePath"
+              assert isinstance(minimum, int) and minimum > 0, "enabled L5 requires a positive observation minimum"
+
+          print({
+              "enabled": enabled,
+              "maxLevel": max_level,
+              "deploymentEvidencePath": level5.get("deploymentEvidencePath"),
+              "minimumObservationSeconds": minimum,
+          })
+          PY
+
+      - name: Validate governed deployment evidence when supplied
+        shell: bash
+        run: |
+          set -euo pipefail
+          path="$(python - <<'PY'
+          import json
+          print(json.load(open("evidence/proof-config.json"))["level5"].get("deploymentEvidencePath", "evidence/deployment-evidence.json"))
+          PY
+          )"
+          minimum="$(python - <<'PY'
+          import json
+          print(json.load(open("evidence/proof-config.json"))["level5"].get("minimumObservationSeconds", 1))
+          PY
+          )"
+
+          if [ ! -f "$path" ]; then
+            echo "No governed deployment evidence supplied; no L5 claim is evaluated."
+            exit 0
+          fi
+
+          expected_commit="${{ github.event.pull_request.head.sha || github.sha }}"
+          python scripts/validate_deployment_evidence.py \
+            "$path" \
+            --expected-commit "$expected_commit" \
+            --minimum-observation-seconds "$minimum"
