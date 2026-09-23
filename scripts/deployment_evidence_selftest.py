@@ -136,7 +136,9 @@ def main() -> int:
     expect(unbounded, False, "unbounded claim")
 
     print("PASS: deployment evidence validator accepted the qualified fixture.")
-    print("PASS: failed SLO, rollback miss, wrong source, synthetic traffic, and unbounded claim were rejected.")
+    print(
+        "PASS: failed SLO, rollback miss, wrong source, synthetic traffic, and unbounded claim were rejected."
+    )
     return 0
 
 
