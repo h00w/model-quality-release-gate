@@ -107,9 +107,7 @@ def assess_deployment_evidence(
     end = parse_time(window.get("end"), "observation.window.end", errors)
     duration = window.get("durationSeconds")
     if not isinstance(duration, int) or duration < minimum_observation_seconds:
-        errors.append(
-            f"observation_window_below_policy_minimum:{minimum_observation_seconds}"
-        )
+        errors.append(f"observation_window_below_policy_minimum:{minimum_observation_seconds}")
     if start and end:
         actual = int((end - start).total_seconds())
         if actual <= 0:
