@@ -10,6 +10,8 @@ import pathlib
 import urllib.error
 import urllib.request
 
+from validate_deployment_evidence import assess_deployment_evidence
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "evidence" / "out" / "current"
 EVIDENCE_PATH = OUT / "evidence.json"
@@ -154,23 +156,68 @@ def main() -> int:
     levels.append(level_record(4, names[4], level4, level4_reason))
 
     level5_cfg = config.get("level5", {})
-    level5_paths_ok, missing_level5 = paths_exist(level5_cfg.get("requiredPaths", []))
+    deployment_assessment = {
+        "qualified": False,
+        "status": "DISABLED",
+        "errors": [],
+        "warnings": [],
+    }
+    deployment_evidence_path = level5_cfg.get("deploymentEvidencePath")
+    level5_enabled = bool(level5_cfg.get("enabled"))
+
+    if level5_enabled:
+        deployment_assessment["status"] = "MISSING"
+        if not deployment_evidence_path:
+            deployment_assessment["errors"] = [
+                "level5.deploymentEvidencePath_is_required_when_enabled"
+            ]
+        else:
+            deployment_path = ROOT / deployment_evidence_path
+            if deployment_path.is_file():
+                try:
+                    deployment_payload = json.loads(
+                        deployment_path.read_text(encoding="utf-8")
+                    )
+                    deployment_assessment = assess_deployment_evidence(
+                        deployment_payload,
+                        expected_commit=evidence.get("subject", {}).get("gitCommit"),
+                        minimum_observation_seconds=int(
+                            level5_cfg.get("minimumObservationSeconds", 1)
+                        ),
+                    )
+                    deployment_assessment["status"] = (
+                        "QUALIFIED"
+                        if deployment_assessment["qualified"]
+                        else "NOT_QUALIFIED"
+                    )
+                    deployment_assessment["path"] = deployment_evidence_path
+                    deployment_assessment["sha256"] = sha256(deployment_path)
+                except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+                    deployment_assessment = {
+                        "qualified": False,
+                        "status": "INVALID",
+                        "errors": [f"deployment_evidence_error:{type(exc).__name__}"],
+                        "warnings": [],
+                    }
+
     level5 = (
         level4
         and config.get("maxLevel", 4) >= 5
-        and bool(level5_cfg.get("enabled"))
-        and level5_paths_ok
+        and level5_enabled
+        and deployment_assessment["qualified"]
     )
     level5_reason = (
-        "Target-environment production evidence satisfies the configured production-validation policy."
+        "Deployment Evidence & Production Observation Contract v1 is satisfied for the exact deployed subject and bounded operational window."
         if level5
         else level5_cfg.get(
             "reason",
-            "Target-environment observation, SLO, and recovery evidence is not established.",
+            "Target-environment observation, SLO, telemetry provenance, and recovery evidence is not established.",
         )
     )
-    if missing_level5:
-        level5_reason += " Missing: " + ", ".join(missing_level5)
+    if deployment_assessment.get("errors"):
+        level5_reason += " Evidence errors: " + ", ".join(
+            deployment_assessment["errors"]
+        )
     levels.append(level_record(5, names[5], level5, level5_reason))
 
     achieved = 0
@@ -202,6 +249,7 @@ def main() -> int:
         "offline": args.offline,
         "executor": executor,
         "externalEvidence": external_results,
+        "deploymentEvidence": deployment_assessment,
         "levels": levels,
     }
 
