@@ -275,9 +275,7 @@ def main() -> int:
             "sbom": "evidence/out/current/sbom.spdx.json",
             "provenance": "evidence/out/current/provenance.json",
             "deploymentEvidence": (
-                "evidence/deployment-evidence.json"
-                if deployment_evidence.is_file()
-                else None
+                "evidence/deployment-evidence.json" if deployment_evidence.is_file() else None
             ),
         },
         "attestation": {
