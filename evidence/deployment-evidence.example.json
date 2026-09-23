@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.0.0",
+  "subject": {
+    "repository": "h00w/REPOSITORY",
+    "commit": "0000000000000000000000000000000000000000",
+    "artifact": {
+      "name": "replace-with-deployed-artifact",
+      "version": "0.0.0-template",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "deployment": {
+    "deploymentId": "template-not-a-production-deployment",
+    "environment": {
+      "id": "template",
+      "class": "target-operational",
+      "region": null,
+      "tenantScope": null
+    },
+    "startedAt": "2026-01-01T00:00:00Z",
+    "environmentFingerprint": {
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "components": [
+        {
+          "name": "runtime",
+          "identity": "replace-me",
+          "sha256": null
+        }
+      ]
+    }
+  },
+  "observation": {
+    "trafficClass": "operational-real",
+    "window": {
+      "start": "2026-01-01T00:00:00Z",
+      "end": "2026-01-01T00:00:01Z",
+      "durationSeconds": 1
+    },
+    "sampleCount": 1,
+    "telemetry": {
+      "system": "replace-me",
+      "sourceRef": "replace-me",
+      "exportSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "querySha256": null,
+      "collectorVersion": "replace-me",
+      "redactionApplied": true,
+      "retentionClass": "replace-me"
+    },
+    "slos": [
+      {
+        "id": "template-slo",
+        "metric": "replace-me",
+        "operator": "<=",
+        "target": 1,
+        "observed": 1,
+        "unit": "replace-me",
+        "passed": true,
+        "evidenceSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  },
+  "rollback": {
+    "demonstrated": true,
+    "drillId": "template",
+    "startedAt": "2026-01-01T00:00:00Z",
+    "completedAt": "2026-01-01T00:00:01Z",
+    "recoveryTimeSeconds": 1,
+    "objectiveSeconds": 1,
+    "outcome": "PASS",
+    "evidenceSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "incidents": {
+    "noneObserved": true,
+    "records": []
+  },
+  "linkage": {
+    "l4ProofBundleSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "releaseBindingSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "sourceCommit": "0000000000000000000000000000000000000000",
+    "attestationUrls": [
+      "https://example.invalid/replace-me"
+    ]
+  },
+  "boundedClaim": {
+    "status": "NOT_PROVEN",
+    "environmentId": "template",
+    "observationStart": "2026-01-01T00:00:00Z",
+    "observationEnd": "2026-01-01T00:00:01Z",
+    "scope": "Template only. Replace with an exact operational scope.",
+    "exclusions": [
+      "This file is not production evidence."
+    ],
+    "statement": "Template only; no production-validation claim is made.",
+    "approvals": [
+      {
+        "role": "template",
+        "identity": "replace-me",
+        "approvedAt": "2026-01-01T00:00:01Z"
+      }
+    ]
+  }
+}
