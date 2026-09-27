@@ -50,4 +50,10 @@ describe('Phase 1 release gate', () => {
     const result = calculateReleaseDecision(s.baseline,s.candidate,{...DEFAULT_THRESHOLDS,latencyMs:15});
     expect(result.comparisons.find(x=>x.key==='latencyMs')?.status).not.toBe('REGRESSION');
   });
+
+  it('rejects non-finite scores in either baseline or candidate', () => {
+    const s = scenario('ship');
+    expect(() => calculateReleaseDecision([{...s.baseline[0], safety: Number.NaN}, ...s.baseline.slice(1)], s.candidate)).toThrow(/finite number/);
+    expect(() => calculateReleaseDecision(s.baseline, [{...s.candidate[0], latencyMs: Number.POSITIVE_INFINITY}, ...s.candidate.slice(1)])).toThrow(/finite/);
+  });
 });
