@@ -38,6 +38,7 @@ export function compareModels(baseline:ModelMetrics,candidate:ModelMetrics,thres
 }
 
 export function calculateReleaseDecision(baselineResults:EvaluationResult[],candidateResults:EvaluationResult[],thresholds=DEFAULT_THRESHOLDS):GateResult{
+  validateEvaluation(baselineResults);
   validateEvaluation(candidateResults);
   const baseline=calculateMetrics(baselineResults),candidate=calculateMetrics(candidateResults),comparisons=compareModels(baseline,candidate,thresholds);
   const byKey=Object.fromEntries(comparisons.map(c=>[c.key,c])) as Record<MetricKey,MetricComparison>;
@@ -71,8 +72,8 @@ export function validateEvaluation(rows:EvaluationResult[]):void{
   const required:Array<keyof EvaluationResult>=['model','taskId','category','helpfulness','safety','reliability','latencyMs','codePassRate','passed','prompt'];
   rows.forEach((row,i)=>{
     for(const field of required)if(row[field]===undefined||row[field]===null||row[field]==='')throw new Error(`Row ${i+1}: required field \`${field}\` is missing.`);
-    for(const field of ['helpfulness','safety','reliability','codePassRate'] as const)if(typeof row[field]!=='number'||row[field]<0||row[field]>1)throw new Error(`Row ${i+1}: ${field} must be between 0 and 1.`);
-    if(typeof row.latencyMs!=='number'||row.latencyMs<0)throw new Error(`Row ${i+1}: latencyMs must be a positive number.`);
+    for(const field of ['helpfulness','safety','reliability','codePassRate'] as const)if(typeof row[field]!=='number'||!Number.isFinite(row[field])||row[field]<0||row[field]>1)throw new Error(`Row ${i+1}: ${field} must be a finite number between 0 and 1.`);
+    if(typeof row.latencyMs!=='number'||!Number.isFinite(row.latencyMs)||row.latencyMs<0)throw new Error(`Row ${i+1}: latencyMs must be a finite non-negative number.`);
   });
 }
 
