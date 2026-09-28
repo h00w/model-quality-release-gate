@@ -56,4 +56,19 @@ describe('Phase 1 release gate', () => {
     expect(() => calculateReleaseDecision([{...s.baseline[0], safety: Number.NaN}, ...s.baseline.slice(1)], s.candidate)).toThrow(/finite number/);
     expect(() => calculateReleaseDecision(s.baseline, [{...s.candidate[0], latencyMs: Number.POSITIVE_INFINITY}, ...s.candidate.slice(1)])).toThrow(/finite/);
   });
+
+  it('holds when candidate omits or substitutes evaluation cases', () => {
+    const s = scenario('ship');
+    const missing = calculateReleaseDecision(s.baseline, s.candidate.slice(1));
+    expect(missing.decision).toBe('HOLD');
+    expect(missing.explanation).toMatch(/1 missing/);
+    const substituted = calculateReleaseDecision(s.baseline, [{...s.candidate[0],taskId:'unseen_case'}, ...s.candidate.slice(1)]);
+    expect(substituted.decision).toBe('HOLD');
+    expect(substituted.explanation).toMatch(/1 unexpected/);
+  });
+
+  it('rejects duplicate task IDs before aggregation', () => {
+    const s = scenario('ship');
+    expect(() => calculateReleaseDecision(s.baseline, [s.candidate[0],s.candidate[0]])).toThrow(/duplicate taskId/);
+  });
 });

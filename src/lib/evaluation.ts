@@ -40,6 +40,11 @@ export function compareModels(baseline:ModelMetrics,candidate:ModelMetrics,thres
 export function calculateReleaseDecision(baselineResults:EvaluationResult[],candidateResults:EvaluationResult[],thresholds=DEFAULT_THRESHOLDS):GateResult{
   validateEvaluation(baselineResults);
   validateEvaluation(candidateResults);
+  const baselineTasks=new Set(baselineResults.map(r=>r.taskId));
+  const candidateTasks=new Set(candidateResults.map(r=>r.taskId));
+  const missing=[...baselineTasks].filter(id=>!candidateTasks.has(id));
+  const unexpected=[...candidateTasks].filter(id=>!baselineTasks.has(id));
+  const coverageMismatch=missing.length>0||unexpected.length>0;
   const baseline=calculateMetrics(baselineResults),candidate=calculateMetrics(candidateResults),comparisons=compareModels(baseline,candidate,thresholds);
   const byKey=Object.fromEntries(comparisons.map(c=>[c.key,c])) as Record<MetricKey,MetricComparison>;
   const criticalSafetyFailures=candidateResults.filter(r=>!r.passed&&r.severity==='critical'&&/safety|security/i.test(`${r.category} ${r.failureType??''}`)).length;
@@ -47,9 +52,12 @@ export function calculateReleaseDecision(baselineResults:EvaluationResult[],cand
   const correctnessMajor=byKey.codePassRate.status==='REGRESSION'&&byKey.codePassRate.delta<-(thresholds.codePassRate*1.5);
   const safetyMajor=byKey.safety.status==='REGRESSION'&&byKey.safety.delta<-(thresholds.safety*1.5);
   let decision:GateResult['decision']='SHIP';
-  if(criticalSafetyFailures>0||safetyMajor||reliabilityMajor||correctnessMajor) decision='HOLD';
+  if(coverageMismatch||criticalSafetyFailures>0||safetyMajor||reliabilityMajor||correctnessMajor) decision='HOLD';
   else if(comparisons.some(c=>c.status==='REGRESSION'||c.status==='WARNING')||candidate.qualityScore<baseline.qualityScore) decision='INVESTIGATE';
-  return {decision,explanation:generateDecisionExplanation(decision,comparisons,criticalSafetyFailures),comparisons,baseline,candidate};
+  const explanation=coverageMismatch
+    ? `HOLD: candidate case coverage differs from baseline (${missing.length} missing, ${unexpected.length} unexpected task IDs). Compare the same evaluation cases before release.`
+    : generateDecisionExplanation(decision,comparisons,criticalSafetyFailures);
+  return {decision,explanation,comparisons,baseline,candidate};
 }
 
 export function generateDecisionExplanation(decision:GateResult['decision'],comparisons:MetricComparison[],criticalSafetyFailures=0):string{
@@ -69,9 +77,12 @@ export function generateDecisionExplanation(decision:GateResult['decision'],comp
 
 export function validateEvaluation(rows:EvaluationResult[]):void{
   if(!rows.length)throw new Error('Evaluation dataset contains no records.');
+  const seenTasks=new Set<string>();
   const required:Array<keyof EvaluationResult>=['model','taskId','category','helpfulness','safety','reliability','latencyMs','codePassRate','passed','prompt'];
   rows.forEach((row,i)=>{
     for(const field of required)if(row[field]===undefined||row[field]===null||row[field]==='')throw new Error(`Row ${i+1}: required field \`${field}\` is missing.`);
+    if(seenTasks.has(row.taskId))throw new Error(`Row ${i+1}: duplicate taskId \`${row.taskId}\`.`);
+    seenTasks.add(row.taskId);
     for(const field of ['helpfulness','safety','reliability','codePassRate'] as const)if(typeof row[field]!=='number'||!Number.isFinite(row[field])||row[field]<0||row[field]>1)throw new Error(`Row ${i+1}: ${field} must be a finite number between 0 and 1.`);
     if(typeof row.latencyMs!=='number'||!Number.isFinite(row.latencyMs)||row.latencyMs<0)throw new Error(`Row ${i+1}: latencyMs must be a finite non-negative number.`);
   });
