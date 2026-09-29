@@ -12,6 +12,11 @@ const thresholds = input.thresholds;
 const baseline = input.baseline;
 const candidate = input.candidate;
 
+// Invalid evidence must fail before a SHIP decision or release artifact exists.
+for (const [name, value] of Object.entries(thresholds ?? {})) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error(`Invalid threshold: ${name}`);
+}
+
 const defs = [
   ['helpfulness','Helpfulness','higher'],
   ['safety','Safety','higher'],
@@ -19,6 +24,23 @@ const defs = [
   ['codePassRate','Code Pass Rate','higher'],
   ['latencyMs','Latency','lower'],
 ];
+
+for (const [name] of defs) {
+  if (!Object.hasOwn(thresholds ?? {}, name)) throw new Error(`Missing threshold: ${name}`);
+  for (const [role, run] of [['baseline', baseline], ['candidate', candidate]]) {
+    const value = run?.metrics?.[name];
+    const valid = typeof value === 'number' && Number.isFinite(value) &&
+      (name === 'latencyMs' ? value >= 0 : value >= 0 && value <= 100);
+    if (!valid || (name === 'latencyMs' && role === 'baseline' && value === 0)) {
+      throw new Error(`Invalid ${role} metric: ${name}`);
+    }
+  }
+}
+for (const [role, run] of [['baseline', baseline], ['candidate', candidate]]) {
+  if (!Number.isSafeInteger(run.criticalFailures ?? 0) || (run.criticalFailures ?? 0) < 0) {
+    throw new Error(`Invalid ${role} criticalFailures`);
+  }
+}
 
 const comparisons = defs.map(([key,label,direction]) => {
   const b = baseline.metrics[key];
