@@ -38,3 +38,21 @@ test('major correctness regression holds',()=>{
   const d=runCase('correctness',i=>{i.candidate.metrics.codePassRate=84;});
   assert.equal(d.decision,'HOLD');
 });
+
+test('malformed metrics and thresholds never emit a release decision',()=>{
+  for (const mutate of [
+    i=>{i.candidate.metrics.safety=null;},
+    i=>{i.baseline.metrics.latencyMs=0;},
+    i=>{i.thresholds.codePassRate=-1;},
+    i=>{i.candidate.criticalFailures=-1;},
+  ]) {
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'invalid-release-gate-'));
+    const input=structuredClone(base);
+    mutate(input);
+    const source=path.join(dir,'input.json'), out=path.join(dir,'evidence');
+    fs.writeFileSync(source,JSON.stringify(input));
+    const result=spawnSync(process.execPath,['scripts/release-gate.mjs',source,out,'--enforce'],{encoding:'utf8'});
+    assert.notEqual(result.status,0);
+    assert.equal(fs.existsSync(path.join(out,'decision.json')),false);
+  }
+});
