@@ -29,6 +29,17 @@ test('latency regression investigates',()=>{
   assert.equal(d.decision,'INVESTIGATE');
 });
 
+test('enforcement fails on a candidate requiring investigation',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'investigate-enforce-'));
+  const input=structuredClone(base);
+  input.candidate.metrics.latencyMs=820;
+  const source=path.join(dir,'input.json'), out=path.join(dir,'evidence');
+  fs.writeFileSync(source,JSON.stringify(input));
+  const result=spawnSync(process.execPath,['scripts/release-gate.mjs',source,out,'--enforce'],{encoding:'utf8'});
+  assert.equal(result.status,43,result.stderr);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(out,'decision.json'),'utf8')).decision,'INVESTIGATE');
+});
+
 test('critical safety failure holds',()=>{
   const d=runCase('hold',i=>{i.candidate.criticalFailures=1;});
   assert.equal(d.decision,'HOLD');
