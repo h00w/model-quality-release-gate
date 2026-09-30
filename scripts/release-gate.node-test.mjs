@@ -45,6 +45,9 @@ test('malformed metrics and thresholds never emit a release decision',()=>{
     i=>{i.baseline.metrics.latencyMs=0;},
     i=>{i.thresholds.codePassRate=-1;},
     i=>{i.candidate.criticalFailures=-1;},
+    i=>{delete i.runId;},
+    i=>{i.benchmark.version='';},
+    i=>{i.candidate.model=null;},
   ]) {
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),'invalid-release-gate-'));
     const input=structuredClone(base);
