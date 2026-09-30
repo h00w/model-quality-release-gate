@@ -12,6 +12,17 @@ const thresholds = input.thresholds;
 const baseline = input.baseline;
 const candidate = input.candidate;
 
+for (const [name, value] of [
+  ['runId', input.runId],
+  ['policyVersion', input.policyVersion],
+  ['benchmark.name', input.benchmark?.name],
+  ['benchmark.version', input.benchmark?.version],
+  ['baseline.model', baseline?.model],
+  ['candidate.model', candidate?.model],
+]) {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`Missing release identity: ${name}`);
+}
+
 // Invalid evidence must fail before a SHIP decision or release artifact exists.
 for (const [name, value] of Object.entries(thresholds ?? {})) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error(`Invalid threshold: ${name}`);
