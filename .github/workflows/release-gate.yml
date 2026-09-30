@@ -55,15 +55,16 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Enforce HOLD as a failing status check
+      - name: Enforce release decision as a status check
         shell: bash
         run: |
           decision=$(jq -r .decision artifacts/release-gate/decision.json)
           echo "Release decision: $decision"
-          if [ "$decision" = "HOLD" ]; then
-            echo "Candidate is blocked by release policy."
-            exit 42
-          fi
           if [ "$decision" = "INVESTIGATE" ]; then
             echo "Candidate requires engineering review before production promotion."
+            exit 43
+          fi
+          if [ "$decision" != "SHIP" ]; then
+            echo "Candidate is blocked by release policy."
+            exit 42
           fi

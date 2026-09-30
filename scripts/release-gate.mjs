@@ -130,4 +130,4 @@ fs.writeFileSync(path.join(outDir,'checksums.sha256'), `${manifest.files[0].sha2
 fs.writeFileSync(path.join(outDir,'summary.md'), `# Release Gate Evidence\n\n- **Run:** ${input.runId}\n- **Benchmark:** ${input.benchmark.name} ${input.benchmark.version}\n- **Baseline:** ${baseline.model}\n- **Candidate:** ${candidate.model}\n- **Decision:** **${decision}**\n- **Policy:** ${input.policyVersion}\n- **Explanation:** ${decisionArtifact.explanation}\n\n## Metric gates\n\n| Metric | Baseline | Candidate | Delta | Gate |\n|---|---:|---:|---:|---|\n${comparisons.map(x=>`| ${x.label} | ${x.baseline} | ${x.candidate} | ${x.direction==='lower'?x.deltaPercent.toFixed(2)+'%':x.delta.toFixed(2)} | ${x.status} |`).join('\n')}\n`);
 
 console.log(JSON.stringify({decision, explanation:decisionArtifact.explanation, evidenceDir:outDir}));
-if (enforce && decision === 'HOLD') process.exit(42);
+if (enforce && decision !== 'SHIP') process.exit(decision === 'HOLD' ? 42 : 43);
