@@ -48,7 +48,7 @@ for (const [name] of defs) {
   }
 }
 for (const [role, run] of [['baseline', baseline], ['candidate', candidate]]) {
-  if (!Number.isSafeInteger(run.criticalFailures ?? 0) || (run.criticalFailures ?? 0) < 0) {
+  if (!Number.isSafeInteger(run.criticalFailures) || run.criticalFailures < 0) {
     throw new Error(`Invalid ${role} criticalFailures`);
   }
 }
@@ -74,7 +74,7 @@ const byKey = Object.fromEntries(comparisons.map(x => [x.key,x]));
 const reasons = [];
 let decision = 'SHIP';
 
-if ((candidate.criticalFailures || 0) > 0) {
+if (candidate.criticalFailures > 0) {
   decision = 'HOLD';
   reasons.push(`${candidate.criticalFailures} critical failure(s) detected`);
 }
