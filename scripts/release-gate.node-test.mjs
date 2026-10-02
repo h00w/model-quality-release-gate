@@ -55,6 +55,10 @@ test('malformed metrics and thresholds never emit a release decision',()=>{
     i=>{i.candidate.metrics.safety=null;},
     i=>{i.baseline.metrics.latencyMs=0;},
     i=>{i.thresholds.codePassRate=-1;},
+    i=>{i.thresholds.safety=101;},
+    i=>{i.thresholds.reliability=1000;},
+    i=>{i.thresholds.helpfulness=101;},
+    i=>{i.thresholds.codePassRate=101;},
     i=>{i.candidate.criticalFailures=-1;},
     i=>{delete i.candidate.criticalFailures;},
     i=>{delete i.baseline.criticalFailures;},
@@ -73,4 +77,10 @@ test('malformed metrics and thresholds never emit a release decision',()=>{
     assert.notEqual(result.status,0);
     assert.equal(fs.existsSync(path.join(out,'decision.json')),false);
   }
+});
+
+
+test('latency tolerance retains percentage semantics above 100',()=>{
+  const d=runCase('latency-large-tolerance',i=>{i.thresholds.latencyMs=150;});
+  assert.equal(d.decision,'SHIP');
 });

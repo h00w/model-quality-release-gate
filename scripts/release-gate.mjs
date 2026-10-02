@@ -38,6 +38,9 @@ const defs = [
 
 for (const [name] of defs) {
   if (!Object.hasOwn(thresholds ?? {}, name)) throw new Error(`Missing threshold: ${name}`);
+  if (name !== 'latencyMs' && thresholds[name] > 100) {
+    throw new Error(`Percentage-point threshold must be within 0–100: ${name}`);
+  }
   for (const [role, run] of [['baseline', baseline], ['candidate', candidate]]) {
     const value = run?.metrics?.[name];
     const valid = typeof value === 'number' && Number.isFinite(value) &&
