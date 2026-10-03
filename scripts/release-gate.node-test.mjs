@@ -24,6 +24,23 @@ test('healthy candidate ships',()=>{
   assert.equal(d.decision,'SHIP');
 });
 
+test('reserved input filenames cannot overwrite release evidence',()=>{
+  for (const name of ['decision.json','manifest.json','summary.md','checksums.sha256']) {
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gate-filename-'));
+    const source=path.join(dir,name), out=path.join(dir,'evidence');
+    const bytes=JSON.stringify(base);
+    fs.writeFileSync(source,bytes);
+    const result=spawnSync(process.execPath,['scripts/release-gate.mjs',source,out],{encoding:'utf8'});
+    assert.equal(result.status,0,result.stderr);
+    const decision=JSON.parse(fs.readFileSync(path.join(out,'decision.json'),'utf8'));
+    assert.equal(decision.decision,'SHIP');
+    const manifest=JSON.parse(fs.readFileSync(path.join(out,'manifest.json'),'utf8'));
+    assert.equal(manifest.files[0].path,'release-input.json');
+    assert.equal(fs.readFileSync(path.join(out,manifest.files[0].path),'utf8'),bytes);
+    assert.match(fs.readFileSync(path.join(out,'checksums.sha256'),'utf8'),/release-input\.json/);
+  }
+});
+
 test('latency regression investigates',()=>{
   const d=runCase('investigate',i=>{i.candidate.metrics.latencyMs=820;});
   assert.equal(d.decision,'INVESTIGATE');
