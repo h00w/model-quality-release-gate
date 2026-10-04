@@ -21,6 +21,12 @@ const defs:Array<{key:MetricKey;label:string;direction:'higher'|'lower'}>=[
 ];
 
 export function compareModels(baseline:ModelMetrics,candidate:ModelMetrics,thresholds:Thresholds):MetricComparison[]{
+  for (const {key} of defs) {
+    const value = thresholds?.[key];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || (key !== 'latencyMs' && value > 100)) {
+      throw new Error(`Invalid threshold: ${key}`);
+    }
+  }
   return defs.map(({key,label,direction})=>{
     const b=baseline[key] as number,c=candidate[key] as number,delta=c-b,deltaPercent=b===0?0:(delta/b)*100,threshold=thresholds[key];
     let status:MetricComparison['status']='PASS';
@@ -81,6 +87,7 @@ export function validateEvaluation(rows:EvaluationResult[]):void{
   const required:Array<keyof EvaluationResult>=['model','taskId','category','helpfulness','safety','reliability','latencyMs','codePassRate','passed','prompt'];
   rows.forEach((row,i)=>{
     for(const field of required)if(row[field]===undefined||row[field]===null||row[field]==='')throw new Error(`Row ${i+1}: required field \`${field}\` is missing.`);
+    if(typeof row.passed!=='boolean')throw new Error(`Row ${i+1}: passed must be a boolean.`);
     if(seenTasks.has(row.taskId))throw new Error(`Row ${i+1}: duplicate taskId \`${row.taskId}\`.`);
     seenTasks.add(row.taskId);
     for(const field of ['helpfulness','safety','reliability','codePassRate'] as const)if(typeof row[field]!=='number'||!Number.isFinite(row[field])||row[field]<0||row[field]>1)throw new Error(`Row ${i+1}: ${field} must be a finite number between 0 and 1.`);
