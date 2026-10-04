@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateReleaseDecision, DEFAULT_THRESHOLDS } from './evaluation';
+import type { Thresholds, EvaluationResult } from '../types/evaluation';
 import { demoScenarios } from '../data/demo';
 
 function scenario(id: string) {
@@ -9,6 +10,27 @@ function scenario(id: string) {
 }
 
 describe('Phase 1 release gate', () => {
+  it('rejects malformed browser threshold policies before scoring', () => {
+    const s = scenario('ship');
+    for (const key of Object.keys(DEFAULT_THRESHOLDS)) {
+      for (const value of [NaN, Infinity, -1, true, '2', undefined]) {
+        const policy = {...DEFAULT_THRESHOLDS, [key]: value} as unknown as Thresholds;
+        expect(() => calculateReleaseDecision(s.baseline, s.candidate, policy)).toThrow(/threshold/i);
+      }
+      if (key !== 'latencyMs') {
+        const policy = {...DEFAULT_THRESHOLDS, [key]: 101};
+        expect(() => calculateReleaseDecision(s.baseline, s.candidate, policy)).toThrow(/threshold/i);
+      }
+    }
+  });
+
+  it('requires boolean pass labels in direct evaluation records', () => {
+    const s = scenario('safety-hold');
+    for (const value of ['false', 'true', 0, 1]) {
+      const rows = s.candidate.map(row => ({...row, passed: value} as unknown as EvaluationResult));
+      expect(() => calculateReleaseDecision(s.baseline, rows)).toThrow(/passed.*boolean/i);
+    }
+  });
   it('ships when all critical constraints pass', () => {
     const s = scenario('ship');
     expect(calculateReleaseDecision(s.baseline,s.candidate,DEFAULT_THRESHOLDS).decision).toBe('SHIP');
