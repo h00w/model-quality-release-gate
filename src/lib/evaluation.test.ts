@@ -10,6 +10,17 @@ function scenario(id: string) {
 }
 
 describe('Phase 1 release gate', () => {
+  it('detects latency growth from a zero baseline', () => {
+    const s = scenario('ship');
+    const baseline = s.baseline.map(row => ({...row, latencyMs: 0}));
+    const result = calculateReleaseDecision(baseline, s.candidate);
+    expect(result.decision).toBe('INVESTIGATE');
+    expect(result.comparisons.find(row => row.key === 'latencyMs')?.status).toBe('REGRESSION');
+    expect(result.comparisons.find(row => row.key === 'latencyMs')?.deltaPercent).toBeNull();
+    expect(result.explanation).toMatch(/zero baseline/);
+    const zero = s.candidate.map(row => ({...row, latencyMs: 0}));
+    expect(calculateReleaseDecision(baseline, zero).comparisons.find(row => row.key === 'latencyMs')?.status).toBe('PASS');
+  });
   it('rejects malformed browser threshold policies before scoring', () => {
     const s = scenario('ship');
     for (const key of Object.keys(DEFAULT_THRESHOLDS)) {

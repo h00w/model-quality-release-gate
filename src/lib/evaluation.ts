@@ -28,18 +28,18 @@ export function compareModels(baseline:ModelMetrics,candidate:ModelMetrics,thres
     }
   }
   return defs.map(({key,label,direction})=>{
-    const b=baseline[key] as number,c=candidate[key] as number,delta=c-b,deltaPercent=b===0?0:(delta/b)*100,threshold=thresholds[key];
+    const b=baseline[key] as number,c=candidate[key] as number,delta=c-b,deltaPercent=b===0?(c===0?0:null):(delta/b)*100,threshold=thresholds[key];
     let status:MetricComparison['status']='PASS';
     if(direction==='higher'){
       const regression=delta < -threshold;
       const warning=!regression && delta < -(threshold*.5);
       status=regression?'REGRESSION':warning?'WARNING':'PASS';
     } else {
-      const regression=deltaPercent > threshold;
-      const warning=!regression && deltaPercent > threshold*.8;
+      const regression=deltaPercent === null ? c > b : deltaPercent > threshold;
+      const warning=!regression && deltaPercent !== null && deltaPercent > threshold*.8;
       status=regression?'REGRESSION':warning?'WARNING':'PASS';
     }
-    return {key,label,baseline:round(b),candidate:round(c),delta:round(delta),deltaPercent:round(deltaPercent),direction,status,threshold};
+    return {key,label,baseline:round(b),candidate:round(c),delta:round(delta),deltaPercent:deltaPercent===null?null:round(deltaPercent),direction,status,threshold};
   });
 }
 
@@ -75,7 +75,8 @@ export function generateDecisionExplanation(decision:GateResult['decision'],comp
   }
   if(decision==='INVESTIGATE'){
     const r=regressions[0];
-    const tradeoff=r?`${r.label} changed by ${r.direction==='lower'?`${r.deltaPercent>0?'+':''}${r.deltaPercent}%`:`${r.delta>0?'+':''}${r.delta} points`}, exceeding the configured tolerance.`:'A metric is close to its tolerance or overall quality did not improve.';
+    const change=r?.direction==='lower'?(r.deltaPercent===null?`${r.delta} ms from a zero baseline`:`${r.deltaPercent>0?'+':''}${r.deltaPercent}%`):`${r?.delta??0} points`;
+    const tradeoff=r?`${r.label} changed by ${change}, exceeding the configured tolerance.`:'A metric is close to its tolerance or overall quality did not improve.';
     return `The candidate improves ${improved.length?improved.join(', '):'some quality dimensions'}, but ${tradeoff} Review the trade-off before production release.`;
   }
   return 'All critical release constraints pass. The candidate is stable or improved across the configured quality gates with no blocking regressions detected.';
