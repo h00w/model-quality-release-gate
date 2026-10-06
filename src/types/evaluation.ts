@@ -47,7 +47,7 @@ export interface MetricComparison {
   baseline: number;
   candidate: number;
   delta: number;
-  deltaPercent: number;
+  deltaPercent: number | null;
   direction: 'higher' | 'lower';
   status: 'PASS' | 'WARNING' | 'REGRESSION';
   threshold: number;
