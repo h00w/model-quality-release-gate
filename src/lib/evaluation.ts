@@ -85,9 +85,11 @@ export function generateDecisionExplanation(decision:GateResult['decision'],comp
 export function validateEvaluation(rows:EvaluationResult[]):void{
   if(!rows.length)throw new Error('Evaluation dataset contains no records.');
   const seenTasks=new Set<string>();
-  const required:Array<keyof EvaluationResult>=['model','taskId','category','helpfulness','safety','reliability','latencyMs','codePassRate','passed','prompt'];
+  const required:Array<keyof EvaluationResult>=['model','version','taskId','category','helpfulness','safety','reliability','latencyMs','codePassRate','passed','prompt'];
+  const nonBlankStrings:Array<keyof EvaluationResult>=['model','version','taskId','category','prompt'];
   rows.forEach((row,i)=>{
     for(const field of required)if(row[field]===undefined||row[field]===null||row[field]==='')throw new Error(`Row ${i+1}: required field \`${field}\` is missing.`);
+    for(const field of nonBlankStrings)if(typeof row[field]!=='string'||!(row[field] as string).trim())throw new Error(`Row ${i+1}: ${field} must be a non-empty string.`);
     if(typeof row.passed!=='boolean')throw new Error(`Row ${i+1}: passed must be a boolean.`);
     if(seenTasks.has(row.taskId))throw new Error(`Row ${i+1}: duplicate taskId \`${row.taskId}\`.`);
     seenTasks.add(row.taskId);

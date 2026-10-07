@@ -42,6 +42,15 @@ describe('Phase 1 release gate', () => {
       expect(() => calculateReleaseDecision(s.baseline, rows)).toThrow(/passed.*boolean/i);
     }
   });
+  it('rejects blank or non-string evaluation identity fields', () => {
+    const s = scenario('ship');
+    for (const field of ['model','version','taskId','category','prompt'] as const) {
+      for (const value of ['   ', 123, null]) {
+        const rows = [{...s.candidate[0], [field]: value}, ...s.candidate.slice(1)] as unknown as EvaluationResult[];
+        expect(() => calculateReleaseDecision(s.baseline, rows)).toThrow(new RegExp(field));
+      }
+    }
+  });
   it('ships when all critical constraints pass', () => {
     const s = scenario('ship');
     expect(calculateReleaseDecision(s.baseline,s.candidate,DEFAULT_THRESHOLDS).decision).toBe('SHIP');
