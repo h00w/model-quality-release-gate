@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateReleaseDecision, DEFAULT_THRESHOLDS } from './evaluation';
+import { calculateReleaseDecision, DEFAULT_THRESHOLDS, normalizeImportedRow, validateEvaluation } from './evaluation';
 import type { Thresholds, EvaluationResult } from '../types/evaluation';
 import { demoScenarios } from '../data/demo';
 
@@ -10,6 +10,19 @@ function scenario(id: string) {
 }
 
 describe('Phase 1 release gate', () => {
+  it('distinguishes an explicit zero latency from missing or malformed measurements', () => {
+    const base = scenario('ship').baseline[0];
+    for (const value of [null, '', '  ', false, [], {}]) {
+      const row = normalizeImportedRow({...base, latencyMs:value}, 0);
+      expect(() => validateEvaluation([row])).toThrow(/latencyMs/);
+    }
+    for (const value of [0, '0']) {
+      const row = normalizeImportedRow({...base, latencyMs:value}, 0);
+      expect(row.latencyMs).toBe(0);
+      expect(() => validateEvaluation([row])).not.toThrow();
+    }
+  });
+
   it('detects latency growth from a zero baseline', () => {
     const s = scenario('ship');
     const baseline = s.baseline.map(row => ({...row, latencyMs: 0}));

@@ -100,5 +100,11 @@ export function validateEvaluation(rows:EvaluationResult[]):void{
 
 export function normalizeImportedRow(raw:Record<string,unknown>,i:number):EvaluationResult{
   const get=(...keys:string[])=>keys.map(k=>raw[k]).find(v=>v!==undefined);
-  return {id:String(get('id')??`import-${i}`),model:String(get('model')??''),version:String(get('version')??get('model')??''),taskId:String(get('taskId','task_id')??''),category:String(get('category')??''),helpfulness:Number(get('helpfulness')),safety:Number(get('safety')),reliability:Number(get('reliability')),latencyMs:Number(get('latencyMs','latency_ms')),codePassRate:Number(get('codePassRate','code_pass_rate','pass_rate')),passed:get('passed')===true||String(get('passed')).toLowerCase()==='true',failureType:(get('failureType','failure_type') as string|null|undefined)??null,severity:(get('severity') as EvaluationResult['severity'])??null,prompt:String(get('prompt')??''),expectedOutput:String(get('expectedOutput','expected')??''),actualOutput:String(get('actualOutput','actual')??'')};
+  const numeric=(...keys:string[])=>{
+    const value=get(...keys);
+    if(typeof value==='number')return value;
+    if(typeof value==='string' && value.trim())return Number(value);
+    return NaN;
+  };
+  return {id:String(get('id')??`import-${i}`),model:String(get('model')??''),version:String(get('version')??get('model')??''),taskId:String(get('taskId','task_id')??''),category:String(get('category')??''),helpfulness:numeric('helpfulness'),safety:numeric('safety'),reliability:numeric('reliability'),latencyMs:numeric('latencyMs','latency_ms'),codePassRate:numeric('codePassRate','code_pass_rate','pass_rate'),passed:get('passed')===true||String(get('passed')).toLowerCase()==='true',failureType:(get('failureType','failure_type') as string|null|undefined)??null,severity:(get('severity') as EvaluationResult['severity'])??null,prompt:String(get('prompt')??''),expectedOutput:String(get('expectedOutput','expected')??''),actualOutput:String(get('actualOutput','actual')??'')};
 }
